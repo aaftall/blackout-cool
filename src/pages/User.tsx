@@ -16,7 +16,6 @@ const User = () => {
   const handleProfilePictureUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      // This will be handled by Supabase storage later
       toast.info('Profile picture upload will be available soon');
     }
   };
@@ -35,7 +34,6 @@ const User = () => {
   };
 
   const handleShareLink = (groupId: string) => {
-    // This will be handled by backend later
     const dummyLink = `https://yourapp.com/join/${groupId}`;
     navigator.clipboard.writeText(dummyLink);
     toast.success('Invite link copied to clipboard');
@@ -45,8 +43,8 @@ const User = () => {
     <div className="min-h-screen bg-background text-foreground p-6 space-y-8 dark:bg-gray-900">
       {/* Header with navigation */}
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold dark:text-white">Profile</h1>
-        <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
+        <h1 className="text-2xl font-bold text-foreground dark:text-white">Profile</h1>
+        <Button variant="ghost" size="icon" onClick={() => navigate('/')} className="dark:hover:bg-gray-800">
           <Camera className="w-6 h-6 dark:text-white" />
         </Button>
       </div>
@@ -62,10 +60,10 @@ const User = () => {
               </AvatarFallback>
             </Avatar>
             <label 
-              className="absolute bottom-0 right-0 p-2 bg-primary rounded-full cursor-pointer dark:bg-blue-600"
+              className="absolute bottom-0 right-0 p-2 bg-primary rounded-full cursor-pointer dark:bg-blue-600 hover:opacity-90 transition-opacity"
               htmlFor="profile-picture"
             >
-              <Image className="w-4 h-4 text-primary-foreground" />
+              <Image className="w-4 h-4 text-white" />
             </label>
             <input
               type="file"
@@ -79,7 +77,7 @@ const User = () => {
             placeholder="Username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            className="max-w-xs dark:bg-gray-800 dark:text-white dark:border-gray-700"
+            className="max-w-xs dark:bg-gray-800 dark:text-white dark:border-gray-700 dark:placeholder-gray-400"
           />
         </div>
       </div>
@@ -87,8 +85,8 @@ const User = () => {
       {/* Groups Section */}
       <div className="space-y-4">
         <div className="flex justify-between items-center">
-          <h2 className="text-xl font-semibold dark:text-white">My Groups</h2>
-          <Button onClick={() => setShowCreateGroup(true)}>
+          <h2 className="text-xl font-semibold text-foreground dark:text-white">My Groups</h2>
+          <Button onClick={() => setShowCreateGroup(true)} className="dark:hover:bg-blue-700">
             <PlusCircle className="w-4 h-4 mr-2" />
             Create Group
           </Button>
@@ -100,9 +98,9 @@ const User = () => {
               placeholder="Group name"
               value={newGroupName}
               onChange={(e) => setNewGroupName(e.target.value)}
-              className="dark:bg-gray-800 dark:text-white dark:border-gray-700"
+              className="dark:bg-gray-800 dark:text-white dark:border-gray-700 dark:placeholder-gray-400"
             />
-            <Button onClick={handleCreateGroup}>Create</Button>
+            <Button onClick={handleCreateGroup} className="dark:hover:bg-blue-700">Create</Button>
           </div>
         )}
 
@@ -120,6 +118,7 @@ const User = () => {
                 variant="ghost"
                 size="icon"
                 onClick={() => handleShareLink(group.id)}
+                className="dark:hover:bg-gray-700"
               >
                 <LinkIcon className="w-4 h-4" />
               </Button>

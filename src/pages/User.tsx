@@ -42,12 +42,12 @@ const User = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background p-6 space-y-8">
+    <div className="min-h-screen bg-background text-foreground p-6 space-y-8 dark:bg-gray-900">
       {/* Header with navigation */}
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Profile</h1>
+        <h1 className="text-2xl font-bold dark:text-white">Profile</h1>
         <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
-          <Camera className="w-6 h-6" />
+          <Camera className="w-6 h-6 dark:text-white" />
         </Button>
       </div>
 
@@ -62,7 +62,7 @@ const User = () => {
               </AvatarFallback>
             </Avatar>
             <label 
-              className="absolute bottom-0 right-0 p-2 bg-primary rounded-full cursor-pointer"
+              className="absolute bottom-0 right-0 p-2 bg-primary rounded-full cursor-pointer dark:bg-blue-600"
               htmlFor="profile-picture"
             >
               <Image className="w-4 h-4 text-primary-foreground" />
@@ -79,7 +79,7 @@ const User = () => {
             placeholder="Username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            className="max-w-xs"
+            className="max-w-xs dark:bg-gray-800 dark:text-white dark:border-gray-700"
           />
         </div>
       </div>
@@ -87,7 +87,7 @@ const User = () => {
       {/* Groups Section */}
       <div className="space-y-4">
         <div className="flex justify-between items-center">
-          <h2 className="text-xl font-semibold">My Groups</h2>
+          <h2 className="text-xl font-semibold dark:text-white">My Groups</h2>
           <Button onClick={() => setShowCreateGroup(true)}>
             <PlusCircle className="w-4 h-4 mr-2" />
             Create Group
@@ -100,6 +100,7 @@ const User = () => {
               placeholder="Group name"
               value={newGroupName}
               onChange={(e) => setNewGroupName(e.target.value)}
+              className="dark:bg-gray-800 dark:text-white dark:border-gray-700"
             />
             <Button onClick={handleCreateGroup}>Create</Button>
           </div>
@@ -109,7 +110,7 @@ const User = () => {
           {groups.map((group) => (
             <div
               key={group.id}
-              className="p-4 border rounded-lg flex justify-between items-center"
+              className="p-4 border rounded-lg flex justify-between items-center dark:bg-gray-800 dark:border-gray-700 dark:text-white"
             >
               <div className="flex items-center gap-3">
                 <Users className="w-5 h-5" />

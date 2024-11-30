@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback } from 'react';
-import { Camera as CameraIcon, CameraRotate, Zap, ZapOff } from 'lucide-react';
+import { Camera as CameraIcon, SwitchCamera, Zap, ZapOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -84,7 +84,7 @@ const Camera = () => {
           onClick={toggleCamera}
           className="p-4 rounded-full bg-camera-controls backdrop-blur-lg"
         >
-          <CameraRotate className="w-6 h-6 text-white" />
+          <SwitchCamera className="w-6 h-6 text-white" />
         </button>
       </div>
 

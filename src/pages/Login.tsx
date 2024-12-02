@@ -56,7 +56,7 @@ const Login = () => {
               },
             }}
             providers={['google']}
-            redirectTo={window.location.origin + '/login'}
+            redirectTo={`${window.location.origin}`}
           />
         </div>
       </div>

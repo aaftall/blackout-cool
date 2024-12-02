@@ -16,14 +16,14 @@ const Login = () => {
   }, [navigate]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-black text-white flex items-center justify-center p-6">
       <div className="max-w-md w-full space-y-8">
         <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+          <h2 className="mt-6 text-center text-3xl font-bold">
             Welcome to Flashgap
           </h2>
         </div>
-        <div className="mt-8 bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+        <div className="mt-8 bg-camera-controls rounded-lg p-8">
           <Auth
             supabaseClient={supabase}
             appearance={{
@@ -31,10 +31,28 @@ const Login = () => {
               variables: {
                 default: {
                   colors: {
-                    brand: '#8B5CF6',
-                    brandAccent: '#7C3AED',
+                    brand: '#3B82F6',
+                    brandAccent: '#2563EB',
+                    inputBackground: 'rgba(255, 255, 255, 0.1)',
+                    inputText: 'white',
+                    inputPlaceholder: 'rgba(255, 255, 255, 0.5)',
+                  },
+                  borderWidths: {
+                    buttonBorderWidth: '0px',
+                    inputBorderWidth: '0px',
+                  },
+                  radii: {
+                    borderRadiusButton: '8px',
+                    buttonBorderRadius: '8px',
+                    inputBorderRadius: '8px',
                   },
                 },
+              },
+              className: {
+                container: 'text-white',
+                label: 'text-white',
+                button: 'bg-camera-button hover:bg-camera-button/90 transition-colors',
+                input: 'bg-camera-controls border-none text-white placeholder-white/50',
               },
             }}
             providers={['google']}

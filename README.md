@@ -1,69 +1,65 @@
-# Welcome to your Lovable project
 
-## Project info
+Blackout.cool
 
-**URL**: https://lovable.dev/projects/d8b399a0-891a-4fba-8582-cbb44a35b60a
+Blackout.cool is a fun and engaging app designed to capture unforgettable party moments with your friends! Take photos throughout the night, but here’s the twist — no one gets to see them until the next day. Relive the party’s best memories together when the fun is fresh and the moments are authentic.
 
-## How can I edit this code?
+📱 Features
 
-There are several ways of editing your application.
+	•	Group Photo Sharing: Collaborate with your group to take photos throughout the night.
+	•	Locked Memories: Photos are hidden and stored securely until the next day.
+	•	Next-Day Reveal: Discover the night’s highlights together the morning after.
+	•	Privacy First: Only invited friends can access your shared album.
+	•	Easy Setup: Quickly create a party album and invite your friends via a unique code or link.
 
-**Use Lovable**
+🎉 How It Works
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/d8b399a0-891a-4fba-8582-cbb44a35b60a) and start prompting.
+	1.	Create a Party:
+	•	Start a party album in the app.
+	•	Invite your friends by sharing your unique party link.
+	2.	Capture the Night:
+	•	Take photos within the app. Everyone in the group can contribute.
+	3.	Lock It Down:
+	•	Once the party ends, the photos are locked until the next at noon.
+	4.	Next-Day Reveal:
+	•	Open the app to relive the party with your friends as all the photos are unveiled.
+	5.	Share & Save:
+	•	Share your favorite moments on social media or save them to your device.
 
-Changes made via Lovable will be committed automatically to this repo.
+🚀 Getting Started
 
-**Use your preferred IDE**
+Prerequisites
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+	•	Available as a webapp, optimized for mobile.
+	•	An active account on Blackout.cool.
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+🛠️ Technology Stack
 
-Follow these steps:
+	•	Frontend: React Native for cross-platform compatibility.
+	•	Backend: FastAPI with a PostgreSQL database.
+	•	Cloud Services: AWS S3 for secure photo storage, Vercel for web hosting.
+	•	Authentication: OAuth 2.0 for seamless user login.
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+🌟 Why Blackout.cool?
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+	•	Build Anticipation: No sneaky peeks during the party — keep the suspense alive.
+	•	Genuine Fun: Capture raw, unfiltered moments.
+	•	Strengthen Connections: Relive the night together as a group.
 
-# Step 3: Install the necessary dependencies.
-npm i
+🛡️ Privacy & Security
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+We prioritize your privacy. All photos are stored securely, and only invited participants can access your group album.
 
-**Edit a file directly in GitHub**
+📢 Feedback & Support
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+I would love to hear your thoughts!
+	•	Report Issues: Submit an Issue
+	•	Contact me: alexis@aaftal.com
 
-**Use GitHub Codespaces**
+🌐 Connect With Us
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+Follow us on social media for updates and tips:
+	•	Instagram: @blackout.cool
+	•	Twitter: @blackoutcoolapp
 
-## What technologies are used for this project?
 
-This project is built with .
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/d8b399a0-891a-4fba-8582-cbb44a35b60a) and click on Share -> Publish.
-
-## I want to use a custom domain - is that possible?
-
-We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
+Relive the best moments. Experience the magic of Blackout.cool! 🎉

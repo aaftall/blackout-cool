@@ -1,62 +1,235 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Camera, Clock } from 'lucide-react';
-import { format } from 'date-fns';
+import React, { useEffect, useState, useCallback } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Camera, Clock, Menu, User } from 'lucide-react';
+import { format, addDays, setHours, setMinutes, isBefore, isAfter } from 'date-fns';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Button } from "@/components/ui/button"
+import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
+
+type photos = {
+  id: string;
+  photo_url: string;
+  created_at: string;
+  community_id: string;
+};
+
+type communities = {
+  id: string;
+  name: string;
+  created_at: string;
+  created_by: string;
+  start_date: string;
+};
 
 const Gallery = () => {
+  const { communityId } = useParams<{ communityId: string }>();
+  const [photos, setPhotos] = useState<photos[]>([]);
+  const [community, setCommunity] = useState<communities | null>(null);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const [timeUntilReveal, setTimeUntilReveal] = React.useState('');
 
-  React.useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      const noon = new Date(now);
-      noon.setHours(12, 0, 0, 0);
-      
-      if (now.getHours() >= 12) {
-        noon.setDate(noon.getDate() + 1);
+  useEffect(() => {
+    const fetchPhotos = async () => {
+      if (!communityId) {
+        toast.error('No community ID provided');
+        return;
       }
+
+      setLoading(true);
       
-      const diff = noon.getTime() - now.getTime();
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      
-      setTimeUntilReveal(`${hours}h ${minutes}m`);
+      try {
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError) throw userError;
+
+        const { data: photosData, error: photosError } = await supabase
+          .from('photos')
+          .select('*')
+          .eq('community_id', communityId);
+
+        if (photosError) throw photosError;
+
+        console.log('Raw photos data:', photosData);
+
+        // Transform the photos data to include proper public URLs
+        const photosWithUrls = photosData?.map(photo => {
+          // Check if the URL is already a full Supabase URL
+          if (photo.photo_url.startsWith('http')) {
+            return photo;
+          }
+
+          // Only get public URL if it's not already a full URL
+          const { data: publicUrlData } = supabase.storage
+            .from('photos')
+            .getPublicUrl(photo.photo_url);
+
+          return {
+            ...photo,
+            photo_url: publicUrlData.publicUrl
+          };
+        }) || [];
+
+        setPhotos(photosWithUrls);
+      } catch (error) {
+        console.error('Error fetching photos:', error);
+        toast.error('Failed to load photos');
+      } finally {
+        setLoading(false);
+      }
     };
 
-    updateTime();
-    const interval = setInterval(updateTime, 60000);
-    return () => clearInterval(interval);
-  }, []);
+    fetchPhotos();
+  }, [communityId, navigate]);
+
+  useEffect(() => {
+    if (!communityId) return;
+
+    const subscription = supabase
+      .channel('photos_channel')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'photos',
+          filter: `community_id=eq.${communityId}`
+        },
+        (payload) => {
+          setPhotos(current => [...current, payload.new as photos]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [communityId]);
+
+  useEffect(() => {
+    const fetchCommunity = async () => {
+      if (!communityId) {
+        toast.error('No community ID provided');
+        return;
+      }
+
+      try {
+        const { data: communityData, error: communityError } = await supabase
+          .from('communities')
+          .select('*')
+          .eq('id', communityId)
+          .single();
+
+        if (communityError) throw communityError;
+
+        setCommunity(communityData);
+      } catch (error) {
+        console.error('Error fetching community:', error);
+        toast.error('Failed to load community');
+      }
+    };
+
+    fetchCommunity();
+  }, [communityId]);
+
+  const addPhotoToCommunity = useCallback(async (photoUrl: string) => {
+    if (!communityId) return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase
+        .from('photos')
+        .insert({
+          photo_url: photoUrl,
+          community_id: communityId,
+          user_id: user.id
+        });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error adding photo:', error);
+      toast.error('Failed to add photo to community');
+    }
+  }, [communityId]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black text-white flex justify-center items-center">
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  if (!community) {
+    return (
+      <div className="min-h-screen bg-black text-white flex justify-center items-center">
+        <p>Community not found</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black text-white p-6">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-2xl font-bold">Gallery</h1>
-        <button
-          onClick={() => navigate('/')}
-          className="p-3 rounded-full bg-camera-controls"
-        >
-          <Camera className="w-6 h-6" />
-        </button>
+        <h1 className="text-2xl font-bold">
+          {community?.name || 'Gallery'}
+        </h1>
+        <div className="flex gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/')}
+            className="p-3 rounded-full bg-camera-controls"
+          >
+            <Camera className="w-6 h-6" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/user')}
+            className="p-3 rounded-full bg-camera-controls"
+          >
+            <User className="w-6 h-6" />
+          </Button>
+        </div>
       </div>
 
-      <div className="flex items-center justify-center space-x-2 mb-8 p-4 rounded-lg bg-camera-controls">
-        <Clock className="w-5 h-5" />
-        <span>Next reveal in {timeUntilReveal}</span>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        {/* This would normally be populated with yesterday's photos */}
-        <div className="aspect-square bg-camera-controls rounded-lg flex items-center justify-center">
-          <span className="text-sm text-gray-400">No photos yet</span>
-        </div>
-        <div className="aspect-square bg-camera-controls rounded-lg flex items-center justify-center">
-          <span className="text-sm text-gray-400">No photos yet</span>
-        </div>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        {photos.map((photo) => (
+          <div key={photo.id} className="aspect-square relative overflow-hidden">
+            <img 
+              src={photo.photo_url} 
+              alt="" 
+              className="w-full h-full object-cover rounded-lg"
+              loading="lazy"
+              onError={(e) => {
+                console.error('Image failed to load:', photo.photo_url);
+                if (e.currentTarget.src !== 'fallback-image-url') {
+                  e.currentTarget.src = 'fallback-image-url';
+                }
+              }}
+            />
+          </div>
+        ))}
       </div>
     </div>
   );
 };
+
+const PhotosNotAvailable = ({ displayTime }: { displayTime: Date }) => (
+  <div className="flex flex-col items-center justify-center h-[50vh] text-center p-4">
+    <h2 className="text-xl font-semibold mb-2">Photos Not Available Yet</h2>
+    <p className="text-gray-400">
+      Photos will be visible on {displayTime.toLocaleDateString()} at{' '}
+      {displayTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+    </p>
+  </div>
+);
 
 export default Gallery;

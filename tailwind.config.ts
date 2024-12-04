@@ -62,10 +62,15 @@ export default {
         "camera-press": {
           "0%, 100%": { transform: "scale(1)" },
           "50%": { transform: "scale(0.95)" }
+        },
+        "spin-slow": {
+          "0%": { transform: "rotate(0deg)" },
+          "100%": { transform: "rotate(360deg)" }
         }
       },
       animation: {
-        "camera-press": "camera-press 0.2s ease-in-out"
+        "camera-press": "camera-press 0.2s ease-in-out",
+        "spin-slow": "spin-slow 3s linear infinite"
       }
     }
   },

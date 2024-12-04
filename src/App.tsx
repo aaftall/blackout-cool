@@ -36,6 +36,11 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+const GalleryWrapper = () => {
+  const { communityId } = useParams();
+  return <Gallery communityId={communityId} />;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -56,7 +61,7 @@ const App = () => (
             path="/community/:communityId/gallery"
             element={
               <ProtectedRoute>
-                <Gallery communityId={useParams().communityId} />
+                <GalleryWrapper />
               </ProtectedRoute>
             }
           />

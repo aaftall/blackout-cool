@@ -109,7 +109,7 @@ const Login = () => {
               },
             }}
             providers={['google']}
-            redirectTo={`${window.location.origin}`}
+            redirectTo={process.env.REACT_APP_REDIRECT_URL || window.location.origin}
           />
         </div>
       </div>

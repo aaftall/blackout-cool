@@ -17,12 +17,10 @@ const Login = () => {
   useEffect(() => {
     const handleAuthChange = async (event: string, session: any) => {
       if (session) {
-        // Extract community ID from URL if it's a join link
         const path = location.pathname;
-        if (path.startsWith('/join/')) {
-          const communityId = path.split('/join/')[1];
+        if (path.startsWith('/login/join/')) {
+          const communityId = path.split('/login/join/')[1];
           try {
-            // Check if user is already a member
             const { data: existingMember, error: memberCheckError } = await supabase
               .from('community_members')
               .select('*')
@@ -34,7 +32,6 @@ const Login = () => {
               throw memberCheckError;
             }
 
-            // Only add user if they're not already a member
             if (!existingMember) {
               const { error: memberError } = await supabase
                 .from('community_members')
@@ -48,7 +45,6 @@ const Login = () => {
               toast.success('Successfully joined the community');
             }
 
-            // Navigate to the community gallery
             navigate(`/community/${communityId}/gallery`);
           } catch (error) {
             console.error('Error joining community:', error);

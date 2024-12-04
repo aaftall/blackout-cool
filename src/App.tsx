@@ -42,7 +42,8 @@ const GalleryWrapper = () => {
 };
 
 const JoinRedirect = () => {
-  return <Navigate to={`/login${window.location.pathname}`} replace />;
+  const { communityId } = useParams();
+  return <Navigate to={`/login/join/${communityId}`} replace />;
 };
 
 const App = () => (
@@ -52,7 +53,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/login" element={<Login />} />
+          <Route path="/login/*" element={<Login />} />
           <Route
             path="/"
             element={
@@ -78,7 +79,6 @@ const App = () => (
             }
           />
           <Route path="/join/:communityId" element={<JoinRedirect />} />
-          <Route path="/login/*" element={<Login />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

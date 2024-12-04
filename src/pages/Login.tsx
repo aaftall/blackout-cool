@@ -17,6 +17,8 @@ const Login = () => {
     });
   }, [navigate]);
 
+  console.log('Redirect URL:', process.env.REACT_APP_REDIRECT_URL || window.location.origin);
+
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center p-6">
       <div className="max-w-md w-full space-y-8">

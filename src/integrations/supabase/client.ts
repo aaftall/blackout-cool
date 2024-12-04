@@ -9,3 +9,4 @@ const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 // import { supabase } from "@/integrations/supabase/client";
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseKey);
+//test//

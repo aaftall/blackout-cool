@@ -152,7 +152,7 @@ const User = () => {
     // Copy to clipboard
     navigator.clipboard.writeText(inviteLink)
       .then(() => {
-        toast.success('Invite link copied to clipboard');
+        toast.success(`Invite link copied: ${inviteLink}`);
       })
       .catch(() => {
         // Fallback for browsers that don't support clipboard API
@@ -162,7 +162,7 @@ const User = () => {
         textarea.select();
         try {
           document.execCommand('copy');
-          toast.success('Invite link copied to clipboard');
+          toast.success(`Invite link copied: ${inviteLink}`);
         } catch (err) {
           toast.error('Failed to copy link');
         }
@@ -219,7 +219,7 @@ const User = () => {
         group.id === groupId ? { 
           ...group, 
           name: editingGroupName,
-          start_date: formattedDate 
+          start_date: formattedDate || undefined  // Convert null to undefined
         } : group
       ));
       setEditingGroupId(null);

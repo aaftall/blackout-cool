@@ -1,23 +1,72 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client';
 import blackoutLogo from "@/assets/logo-blackout 1.png";
+import { toast } from 'sonner';
 
 const Login = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [isGuidelinesOpen, setIsGuidelinesOpen] = useState(false);
 
-  useEffect(() => {
-    supabase.auth.onAuthStateChange((event, session) => {
-      if (session) {
-        navigate('/');
-      }
-    });
-  }, [navigate]);
+  // Get the original join path if it exists
+  const redirectPath = location.pathname.replace('/login', '');
 
-  console.log('Redirect URL:', process.env.REACT_APP_REDIRECT_URL || window.location.origin);
+  useEffect(() => {
+    const handleAuthChange = async (event: string, session: any) => {
+      if (session) {
+        // Extract community ID from URL if it's a join link
+        const path = location.pathname;
+        if (path.startsWith('/join/')) {
+          const communityId = path.split('/join/')[1];
+          try {
+            // Check if user is already a member
+            const { data: existingMember, error: memberCheckError } = await supabase
+              .from('community_members')
+              .select('*')
+              .eq('community_id', communityId)
+              .eq('user_id', session.user.id)
+              .single();
+
+            if (memberCheckError && memberCheckError.code !== 'PGRST116') {
+              throw memberCheckError;
+            }
+
+            // Only add user if they're not already a member
+            if (!existingMember) {
+              const { error: memberError } = await supabase
+                .from('community_members')
+                .insert({
+                  community_id: communityId,
+                  user_id: session.user.id,
+                  user_role: 'member'
+                });
+
+              if (memberError) throw memberError;
+              toast.success('Successfully joined the community');
+            }
+
+            // Navigate to the community gallery
+            navigate(`/community/${communityId}/gallery`);
+          } catch (error) {
+            console.error('Error joining community:', error);
+            toast.error('Failed to join community');
+            navigate('/');
+          }
+        } else {
+          navigate('/');
+        }
+      }
+    };
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(handleAuthChange);
+
+    return () => {
+      subscription?.unsubscribe();
+    };
+  }, [navigate, location]);
 
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center p-6">
@@ -111,7 +160,7 @@ const Login = () => {
               },
             }}
             providers={['google']}
-            redirectTo={process.env.REACT_APP_REDIRECT_URL || window.location.origin}
+            redirectTo={`${window.location.origin}${redirectPath}`}
           />
         </div>
       </div>

@@ -41,6 +41,10 @@ const GalleryWrapper = () => {
   return <Gallery communityId={communityId} />;
 };
 
+const JoinRedirect = () => {
+  return <Navigate to={`/login${window.location.pathname}`} replace />;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -73,6 +77,8 @@ const App = () => (
               </ProtectedRoute>
             }
           />
+          <Route path="/join/:communityId" element={<JoinRedirect />} />
+          <Route path="/login/*" element={<Login />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

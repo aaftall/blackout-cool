@@ -15,45 +15,46 @@ const Login = () => {
   const redirectPath = location.pathname.replace('/login', '');
 
   useEffect(() => {
-    const handleAuthChange = async (session: any) => {
-      if (session) {
-        const path = location.pathname;
-        if (path.startsWith('/login/join/')) {
-          const communityId = path.split('/login/join/')[1];
-          try {
-            const { data: existingMember, error: memberCheckError } = await supabase
-              .from('community_members')
-              .select('*')
-              .eq('community_id', communityId)
-              .eq('user_id', session.user.id)
-              .single();
+    const handleAuthChange = async (event: any, session: any) => {
+      // Only handle sign_in events
+      if (event !== 'SIGNED_IN' || !session) return;
 
-            if (memberCheckError && memberCheckError.code !== 'PGRST116') {
-              throw memberCheckError;
-            }
+      const path = location.pathname;
+      if (path.startsWith('/login/join/')) {
+        const communityId = path.split('/login/join/')[1];
+        try {
+          const { data: existingMember, error: memberCheckError } = await supabase
+            .from('community_members')
+            .select('*')
+            .eq('community_id', communityId)
+            .eq('user_id', session.user.id)
+            .single();
 
-            if (!existingMember) {
-              const { error: memberError } = await supabase
-                .from('community_members')
-                .insert({
-                  community_id: communityId,
-                  user_id: session.user.id,
-                  user_role: 'member'
-                });
-
-              if (memberError) throw memberError;
-              toast.success('Successfully joined the community');
-            }
-
-            navigate(`/community/${communityId}/gallery`);
-          } catch (error) {
-            console.error('Error joining community:', error);
-            toast.error('Failed to join community');
-            navigate('/');
+          if (memberCheckError && memberCheckError.code !== 'PGRST116') {
+            throw memberCheckError;
           }
-        } else {
+
+          if (!existingMember) {
+            const { error: memberError } = await supabase
+              .from('community_members')
+              .insert({
+                community_id: communityId,
+                user_id: session.user.id,
+                user_role: 'member'
+              });
+
+            if (memberError) throw memberError;
+            toast.success('Successfully joined the community');
+          }
+
+          navigate(`/community/${communityId}/gallery`);
+        } catch (error) {
+          console.error('Error joining community:', error);
+          toast.error('Failed to join community');
           navigate('/');
         }
+      } else {
+        navigate('/');
       }
     };
 

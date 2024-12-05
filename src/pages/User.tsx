@@ -1,39 +1,28 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, Image, Users, Link as LinkIcon, PlusCircle, Menu, Pencil, Trash2 } from 'lucide-react';
+import { Camera, Image, Users, Link as LinkIcon, PlusCircle, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { profileApi } from '@/lib/api/profile';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 import { CreateCommunity } from '@/components/CreateCommunity';
 
-interface Community {
-  id: string;
-  name: string;
-  created_by: string;
-  created_at: string;
-  start_date?: string;
-}
+type Community = Database['public']['Tables']['communities']['Row'];
 
 const User = () => {
   const navigate = useNavigate();
   const [username, setUsername] = React.useState('');
-  const [groups, setGroups] = React.useState<{ id: string; name: string; start_date?: string; created_at: string }[]>([]);
+  const [groups, setGroups] = React.useState<Community[]>([]);
   const [showCreateCommunity, setShowCreateCommunity] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(false);
   const [avatarUrl, setAvatarUrl] = React.useState<string | null>(null);
   const [isEditingUsername, setIsEditingUsername] = React.useState(false);
-  const [editingGroupId, setEditingGroupId] = React.useState<string | null>(null);
-  const [editingGroupName, setEditingGroupName] = React.useState('');
-  const [editingGroupDate, setEditingGroupDate] = React.useState('');
+  const [editingCommunityId, setEditingCommunityId] = React.useState<string | null>(null);
+  const [editingCommunityName, setEditingCommunityName] = React.useState('');
+  const [editingCommunityDate, setEditingCommunityDate] = React.useState('');
   
   React.useEffect(() => {
     async function loadProfile() {
@@ -56,7 +45,7 @@ const User = () => {
         const profile = await profileApi.getProfile();
         if (profile) {
           setUsername(profile.username || '');
-          setAvatarUrl(profile.avatar_url);
+          setAvatarUrl(profile.avatar_url || null);
         } else {
           console.error('Profile not found');
           toast.error('Profile not found');
@@ -83,7 +72,7 @@ const User = () => {
           toast.error('Failed to load communities');
         } else {
           const communities = userCommunities
-            ?.map(item => item.community)
+            ?.flatMap(item => item.community)
             .filter(community => community !== null);
           setGroups(communities || []);
         }
@@ -144,18 +133,15 @@ const User = () => {
     }
   };
 
-  const handleShareLink = (groupId: string) => {
-    // Get the current domain dynamically
+  const handleShareLink = (communityId: string) => {
     const domain = window.location.origin;
-    const inviteLink = `${domain}/join/${groupId}`;
+    const inviteLink = `${domain}/login/join/${communityId}`;
     
-    // Copy to clipboard
     navigator.clipboard.writeText(inviteLink)
       .then(() => {
         toast.success(`Invite link copied: ${inviteLink}`);
       })
       .catch(() => {
-        // Fallback for browsers that don't support clipboard API
         const textarea = document.createElement('textarea');
         textarea.value = inviteLink;
         document.body.appendChild(textarea);
@@ -180,16 +166,16 @@ const User = () => {
     }
   };
 
-  const handleDeleteGroup = async (groupId: string) => {
+  const handleDeleteGroup = async (communityId: string) => {
     try {
       const { error } = await supabase
         .from('communities')
         .delete()
-        .eq('id', groupId);
+        .eq('id', communityId);
       
       if (error) throw error;
       
-      setGroups(groups.filter(group => group.id !== groupId));
+      setGroups(groups.filter(group => group.id !== communityId));
       toast.success('Community deleted');
     } catch (error) {
       console.error('Delete error:', error);
@@ -197,18 +183,17 @@ const User = () => {
     }
   };
 
-  const handleUpdateGroup = async (groupId: string) => {
+  const handleUpdateGroup = async (communityId: string) => {
     try {
-      // Format the date properly for the database
-      const formattedDate = editingGroupDate ? new Date(editingGroupDate).toISOString() : null;
+      const formattedDate = editingCommunityDate ? new Date(editingCommunityDate).toISOString() : null;
 
       const { error } = await supabase
         .from('communities')
         .update({ 
-          name: editingGroupName,
-          start_date: formattedDate  // Use the formatted date
+          name: editingCommunityName,
+          start_date: formattedDate
         })
-        .eq('id', groupId);
+        .eq('id', communityId);
       
       if (error) {
         console.error('Update error:', error);
@@ -216,13 +201,13 @@ const User = () => {
       }
       
       setGroups(groups.map(group => 
-        group.id === groupId ? { 
+        group.id === communityId ? { 
           ...group, 
-          name: editingGroupName,
-          start_date: formattedDate || undefined  // Convert null to undefined
+          name: editingCommunityName,
+          start_date: formattedDate || null
         } : group
       ));
-      setEditingGroupId(null);
+      setEditingCommunityId(null);
       toast.success('Community updated');
     } catch (error) {
       console.error('Update error:', error);
@@ -232,7 +217,6 @@ const User = () => {
 
   return (
     <div className="min-h-screen bg-black text-white p-6 flex flex-col justify-between">
-      {/* Header with navigation */}
       <div>
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-2xl font-bold">Profile</h1>
@@ -248,7 +232,6 @@ const User = () => {
           </div>
         </div>
 
-        {/* Profile Section */}
         <div className="space-y-6">
           <div className="flex flex-col items-center space-y-4">
             <div className="relative">
@@ -308,35 +291,35 @@ const User = () => {
           </div>
         </div>
 
-        {/* Groups Section */}
         <div className="space-y-4 mt-8">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold">My Groups</h2>
             {showCreateCommunity ? (
               <CreateCommunity
-                onSuccess={async (newCommunity: Community) => {
+                onSuccess={async (community: { id: string; name: string; start_date?: string }) => {
                   try {
-                    console.log('Starting community setup with:', newCommunity);
+                    console.log('Starting community setup with:', community);
                     
-                    const communityWithTimestamp = {
-                      ...newCommunity,
-                      created_at: new Date().toISOString()
-                    };
-                    
-                    if (!newCommunity.id) {
-                      throw new Error('Community creation failed - no ID returned');
-                    }
-
                     const { data: { user }, error: userError } = await supabase.auth.getUser();
-                    
                     if (userError || !user) {
                       throw new Error('Failed to get current user');
+                    }
+                    
+                    const communityWithTimestamp = {
+                      ...community,
+                      created_at: new Date().toISOString(),
+                      created_by: user.id,
+                      start_date: community.start_date || null
+                    } satisfies Community;
+                    
+                    if (!community.id) {
+                      throw new Error('Community creation failed - no ID returned');
                     }
 
                     const { error: memberError } = await supabase
                       .from('community_members')
                       .insert({
-                        community_id: newCommunity.id,
+                        community_id: community.id,
                         user_id: user.id,
                         user_role: 'admin'
                       });
@@ -345,8 +328,8 @@ const User = () => {
                       throw memberError;
                     }
 
-                    if (newCommunity.start_date) {
-                      const startDate = new Date(newCommunity.start_date);
+                    if (community.start_date) {
+                      const startDate = new Date(community.start_date);
                       const dayBefore = new Date(startDate);
                       dayBefore.setDate(dayBefore.getDate() - 1);
                       const dayAfter = new Date(startDate);
@@ -366,7 +349,7 @@ const User = () => {
                       if (photos && photos.length > 0) {
                         const { error: updateError } = await supabase
                           .from('photos')
-                          .update({ community_id: newCommunity.id })
+                          .update({ community_id: community.id })
                           .in('id', photos.map(photo => photo.id));
 
                         if (updateError) {
@@ -406,18 +389,18 @@ const User = () => {
               >
                 <div className="flex items-center gap-3 flex-grow">
                   <Users className="w-5 h-5" />
-                  {editingGroupId === group.id ? (
+                  {editingCommunityId === group.id ? (
                     <div className="flex flex-col gap-2 w-full">
                       <Input
-                        value={editingGroupName}
-                        onChange={(e) => setEditingGroupName(e.target.value)}
+                        value={editingCommunityName}
+                        onChange={(e) => setEditingCommunityName(e.target.value)}
                         placeholder="Group name"
                         className="bg-camera-controls border-none text-white"
                       />
                       <Input
                         type="date"
-                        value={editingGroupDate.split('T')[0]} // Format the date for the input
-                        onChange={(e) => setEditingGroupDate(e.target.value)}
+                        value={editingCommunityDate.split('T')[0]}
+                        onChange={(e) => setEditingCommunityDate(e.target.value)}
                         className="bg-camera-controls border-none text-white"
                       />
                       <Button 
@@ -440,7 +423,7 @@ const User = () => {
                   <Button
                     variant="ghost"
                     onClick={() => navigate(`/community/${group.id}/gallery`)}
-                    className="flex items-center gap-2 bg-gradient-to-r from-purple-500 via-pink-500 to-red-500 text-white transition-all duration-300 hover:from-red-500 hover:via-pink-500 hover:to-purple-500 w-full sm:w-auto"
+                    className="flex items-center gap-2 bg-gradient-to-r from-purple-500 via-pink-500 to-red-500 text-white transition-all duration-300 hover:from-red-500 hover:via-pink-500 hover:text-white hover:to-purple-500 w-full sm:w-auto"
                   >
                     <Image className="w-4 h-4" />
                     View album
@@ -450,9 +433,9 @@ const User = () => {
                       variant="ghost"
                       size="icon"
                       onClick={() => {
-                        setEditingGroupId(group.id);
-                        setEditingGroupName(group.name);
-                        setEditingGroupDate(group.start_date || ''); // Use start_date instead of created_at
+                        setEditingCommunityId(group.id);
+                        setEditingCommunityName(group.name);
+                        setEditingCommunityDate(group.start_date || '');
                       }}
                       className="hover:bg-opacity-80"
                     >
@@ -482,7 +465,6 @@ const User = () => {
         </div>
       </div>
 
-      {/* Move the Disconnect button to the bottom and center it */}
       <div className="flex justify-center mt-4">
         <Button 
           onClick={handleSignOut}

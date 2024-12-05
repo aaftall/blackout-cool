@@ -2,14 +2,8 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Camera, Clock, Menu, User } from 'lucide-react';
 import { format, addDays, setHours, setMinutes, isBefore, isAfter } from 'date-fns';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 type photos = {
@@ -24,11 +18,14 @@ type communities = {
   name: string;
   created_at: string;
   created_by: string;
-  start_date: string;
+  start_date: string | null;
 };
 
-const Gallery = () => {
-  const { communityId } = useParams<{ communityId: string }>();
+interface GalleryProps {
+  communityId?: string;
+}
+
+const Gallery = ({ communityId }: GalleryProps) => {
   const [photos, setPhotos] = useState<photos[]>([]);
   const [community, setCommunity] = useState<communities | null>(null);
   const [loading, setLoading] = useState(true);

@@ -15,7 +15,7 @@ const Login = () => {
   const redirectPath = location.pathname.replace('/login', '');
 
   useEffect(() => {
-    const handleAuthChange = async (event: string, session: any) => {
+    const handleAuthChange = async (session: any) => {
       if (session) {
         const path = location.pathname;
         if (path.startsWith('/login/join/')) {
@@ -160,7 +160,7 @@ const Login = () => {
           />
         </div>
       </div>
-      <style jsx>{`
+      <style>{`
         .text-mesh-gradient {
           background: linear-gradient(to right, #9333ea, #ec4899, #ef4444);
           background-clip: text;

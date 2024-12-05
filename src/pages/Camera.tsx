@@ -2,9 +2,18 @@ import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { Camera as CameraIcon, SwitchCamera, Zap, ZapOff, Menu, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { supabase } from '../lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 import { Button } from "@/components/ui/button"
+
+type CommunityMember = {
+  community: {
+    id: string;
+    name: string;
+    created_by: string;
+    start_date: string | null;
+  }
+}
 
 const Camera = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -28,10 +37,11 @@ const Camera = () => {
           community:communities (
             id,
             name,
+            created_by,
             start_date
           )
         `)
-        .eq('user_id', user.id);
+        .eq('user_id', user.id) as unknown as { data: CommunityMember[], error: any };
 
       if (error) {
         console.error('Error fetching communities:', error);
@@ -127,7 +137,7 @@ const Camera = () => {
       const fileName = `${uuidv4()}.jpg`;
 
       // Upload photo to storage
-      const { data: fileData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('photos')
         .upload(fileName, blob);
 
@@ -149,7 +159,7 @@ const Camera = () => {
           {
             user_id: user.id,
             photo_url: publicUrl,
-            community_id: activeCommunity
+            community_id: activeCommunity || undefined
           }
         ]);
 

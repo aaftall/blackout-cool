@@ -1,8 +1,8 @@
-import { supabase } from '@/lib/supabase'; // Make sure this import points to your Supabase client
+import { supabase } from '@/integrations/supabase/client';
 
 interface Profile {
-  username?: string;
-  avatar_url?: string;
+  username?: string | null;
+  avatar_url?: string | null;
 }
 
 export const profileApi = {
@@ -93,7 +93,7 @@ export const profileApi = {
       }
 
       // Upload new avatar
-      const { error: uploadError, data } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(fileName, file, {
           cacheControl: '3600',

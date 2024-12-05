@@ -9,7 +9,89 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      community_members: {
+        Row: {
+          id: string;
+          community_id: string;
+          user_id: string;
+          user_role: string;
+        };
+        Insert: {
+          id?: string;
+          community_id: string;
+          user_id: string;
+          user_role: string;
+        };
+        Update: {
+          id?: string;
+          community_id?: string;
+          user_id?: string;
+          user_role?: string;
+        };
+      };
+      communities: {
+        Row: {
+          id: string;
+          name: string;
+          created_at: string;
+          start_date: string | null;
+          created_by: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          created_at?: string;
+          start_date?: string | null;
+          created_by: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          created_at?: string;
+          start_date?: string | null;
+          created_by?: string;
+        };
+      };
+      photos: {
+        Row: {
+          id: string;
+          user_id: string;
+          community_id?: string;
+          created_at: string;
+          photo_url: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          community_id?: string;
+          created_at?: string;
+          photo_url: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          community_id?: string;
+          created_at?: string;
+          photo_url?: string;
+        };
+      };
+      profiles: {
+        Row: {
+          id: string;
+          username: string | null;
+          avatar_url: string | null;
+        };
+        Insert: {
+          id: string;
+          username?: string | null;
+          avatar_url?: string | null;
+        };
+        Update: {
+          id?: string;
+          username?: string | null;
+          avatar_url?: string | null;
+        };
+      };
     }
     Views: {
       [_ in never]: never

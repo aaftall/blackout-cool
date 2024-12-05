@@ -12,16 +12,22 @@ const Login = () => {
   const [isGuidelinesOpen, setIsGuidelinesOpen] = useState(false);
 
   // Get the original join path if it exists
-  const redirectPath = location.pathname.replace('/login', '');
+  const redirectPath = location.pathname.startsWith('/login/join/') 
+    ? location.pathname 
+    : location.pathname.replace('/login', '');
 
   useEffect(() => {
     const handleAuthChange = async (event: any, session: any) => {
-      // Only handle sign_in events
+      console.log('Auth event received:', event, 'Session:', session);
       if (event !== 'SIGNED_IN' || !session) return;
 
       const path = location.pathname;
+      console.log('Current path:', path);
+      
       if (path.startsWith('/login/join/')) {
         const communityId = path.split('/login/join/')[1];
+        console.log('Attempting to join community:', communityId);
+        
         try {
           const { data: existingMember, error: memberCheckError } = await supabase
             .from('community_members')
@@ -30,20 +36,33 @@ const Login = () => {
             .eq('user_id', session.user.id)
             .single();
 
+          console.log('Existing member check:', { existingMember, memberCheckError });
+
           if (memberCheckError && memberCheckError.code !== 'PGRST116') {
+            console.error('Member check error:', memberCheckError);
             throw memberCheckError;
           }
 
           if (!existingMember) {
-            const { error: memberError } = await supabase
-              .from('community_members')
-              .insert({
-                community_id: communityId,
-                user_id: session.user.id,
-                user_role: 'member'
-              });
+            const memberData = {
+              community_id: communityId,
+              user_id: session.user.id,
+              user_role: 'member'
+            };
+            console.log('Inserting new member:', memberData);
 
-            if (memberError) throw memberError;
+            const { error: memberError, data: insertedMember } = await supabase
+              .from('community_members')
+              .insert(memberData)
+              .select()
+              .single();
+
+            if (memberError) {
+              console.error('Insert error:', memberError);
+              throw memberError;
+            }
+            
+            console.log('Successfully inserted member:', insertedMember);
             toast.success('Successfully joined the community');
           }
 

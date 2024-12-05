@@ -9,8 +9,11 @@ import { profileApi } from '@/lib/api/profile';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 import { CreateCommunity } from '@/components/CreateCommunity';
+import DatePicker from 'react-datepicker';
 
-type Community = Database['public']['Tables']['communities']['Row'];
+type Community = Database['public']['Tables']['communities']['Row'] & {
+  end_date?: string | null;
+};
 
 const User = () => {
   const navigate = useNavigate();
@@ -23,6 +26,7 @@ const User = () => {
   const [editingCommunityId, setEditingCommunityId] = React.useState<string | null>(null);
   const [editingCommunityName, setEditingCommunityName] = React.useState('');
   const [editingCommunityDate, setEditingCommunityDate] = React.useState('');
+  const [editingCommunityEndDate, setEditingCommunityEndDate] = React.useState('');
   
   React.useEffect(() => {
     async function loadProfile() {
@@ -59,6 +63,7 @@ const User = () => {
               name,
               created_at,
               start_date,
+              end_date,
               created_by
             )
           `)
@@ -160,13 +165,15 @@ const User = () => {
     try {
       await supabase.auth.signOut();
       navigate('/login'); // or wherever you want to redirect after logout
-      toast.success('Successfully signed out');
     } catch (error) {
       toast.error('Failed to sign out');
     }
   };
 
   const handleDeleteGroup = async (communityId: string) => {
+    const confirmDelete = window.confirm('Are you sure you want to delete this community?');
+    if (!confirmDelete) return;
+
     try {
       const { error } = await supabase
         .from('communities')
@@ -176,7 +183,6 @@ const User = () => {
       if (error) throw error;
       
       setGroups(groups.filter(group => group.id !== communityId));
-      toast.success('Community deleted');
     } catch (error) {
       console.error('Delete error:', error);
       toast.error('Failed to delete community');
@@ -185,30 +191,29 @@ const User = () => {
 
   const handleUpdateGroup = async (communityId: string) => {
     try {
-      const formattedDate = editingCommunityDate ? new Date(editingCommunityDate).toISOString() : null;
+      const formattedStartDate = editingCommunityDate ? new Date(editingCommunityDate).toISOString() : null;
+      const formattedEndDate = editingCommunityEndDate ? new Date(editingCommunityEndDate).toISOString() : null;
 
       const { error } = await supabase
         .from('communities')
         .update({ 
           name: editingCommunityName,
-          start_date: formattedDate
+          start_date: formattedStartDate,
+          end_date: formattedEndDate
         })
         .eq('id', communityId);
       
-      if (error) {
-        console.error('Update error:', error);
-        throw error;
-      }
+      if (error) throw error;
       
       setGroups(groups.map(group => 
         group.id === communityId ? { 
           ...group, 
           name: editingCommunityName,
-          start_date: formattedDate || null
+          start_date: formattedStartDate,
+          end_date: formattedEndDate
         } : group
       ));
       setEditingCommunityId(null);
-      toast.success('Community updated');
     } catch (error) {
       console.error('Update error:', error);
       toast.error('Failed to update community');
@@ -296,9 +301,11 @@ const User = () => {
             <h2 className="text-xl font-semibold">My Groups</h2>
             {showCreateCommunity ? (
               <CreateCommunity
-                onSuccess={async (community: { id: string; name: string; start_date?: string }) => {
+                onSuccess={async (community: { id: string; name: string; start_date?: string | null; end_date?: string | null }) => {
+                  const startDate = community.start_date || undefined;
+                  const endDate = community.end_date || undefined;
                   try {
-                    console.log('Starting community setup with:', community);
+                    console.log('Starting community setup with:', { ...community, start_date: startDate, end_date: endDate });
                     
                     const { data: { user }, error: userError } = await supabase.auth.getUser();
                     if (userError || !user) {
@@ -309,7 +316,8 @@ const User = () => {
                       ...community,
                       created_at: new Date().toISOString(),
                       created_by: user.id,
-                      start_date: community.start_date || null
+                      start_date: community.start_date || null,
+                      end_date: community.end_date || null
                     } satisfies Community;
                     
                     if (!community.id) {
@@ -339,6 +347,7 @@ const User = () => {
                         .from('photos')
                         .select('*')
                         .eq('user_id', user.id)
+                        .is('community_id', null)
                         .gte('created_at', dayBefore.toISOString())
                         .lte('created_at', dayAfter.toISOString());
 
@@ -362,7 +371,6 @@ const User = () => {
 
                     setGroups([...groups, communityWithTimestamp]);
                     setShowCreateCommunity(false);
-                    toast.success('Community created successfully');
                   } catch (error) {
                     console.error('Error in community creation:', error);
                     toast.error('Failed to set up community');
@@ -397,11 +405,41 @@ const User = () => {
                         placeholder="Group name"
                         className="bg-camera-controls border-none text-white"
                       />
-                      <Input
-                        type="date"
-                        value={editingCommunityDate.split('T')[0]}
-                        onChange={(e) => setEditingCommunityDate(e.target.value)}
-                        className="bg-camera-controls border-none text-white"
+                      <label className="text-white">Party starts</label>
+                      <DatePicker
+                        selected={editingCommunityDate ? new Date(editingCommunityDate) : null}
+                        onChange={(date) => {
+                          if (date) {
+                            const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}T${String(date.getHours()).padStart(2, '0')}:00`;
+                            setEditingCommunityDate(formattedDate);
+                          }
+                        }}
+                        showTimeSelect
+                        timeIntervals={60}
+                        timeFormat="HH:00"
+                        dateFormat="MMMM d, yyyy h:00 aa"
+                        className="w-full bg-camera-controls border-none text-white cursor-pointer p-2 rounded-md"
+                        disabled={isLoading}
+                        calendarClassName="custom-datepicker"
+                        wrapperClassName="w-full"
+                      />
+                      <label className="text-white">Party ends</label>
+                      <DatePicker
+                        selected={editingCommunityEndDate ? new Date(editingCommunityEndDate) : null}
+                        onChange={(date) => {
+                          if (date) {
+                            const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}T${String(date.getHours()).padStart(2, '0')}:00`;
+                            setEditingCommunityEndDate(formattedDate);
+                          }
+                        }}
+                        showTimeSelect
+                        timeIntervals={60}
+                        timeFormat="HH:00"
+                        dateFormat="MMMM d, yyyy h:00 aa"
+                        className="w-full bg-camera-controls border-none text-white cursor-pointer p-2 rounded-md"
+                        disabled={isLoading}
+                        calendarClassName="custom-datepicker"
+                        wrapperClassName="w-full"
                       />
                       <Button 
                         onClick={() => handleUpdateGroup(group.id)}
@@ -415,6 +453,7 @@ const User = () => {
                       <span>{group.name}</span>
                       <span className="text-sm text-gray-400">
                         {group.start_date ? new Date(group.start_date).toLocaleDateString() : 'No start date set'}
+                        {group.end_date && ` - ${new Date(group.end_date).toLocaleDateString()}`}
                       </span>
                     </div>
                   )}
@@ -436,6 +475,7 @@ const User = () => {
                         setEditingCommunityId(group.id);
                         setEditingCommunityName(group.name);
                         setEditingCommunityDate(group.start_date || '');
+                        setEditingCommunityEndDate(group.end_date || '');
                       }}
                       className="hover:bg-opacity-80"
                     >

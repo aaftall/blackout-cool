@@ -140,6 +140,22 @@ const Gallery = ({ communityId }: GalleryProps) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // First check if the photo is already in a community
+      const { data: existingPhoto, error: checkError } = await supabase
+        .from('photos')
+        .select('community_id')
+        .eq('photo_url', photoUrl)
+        .single();
+
+      if (checkError) throw checkError;
+
+      // If photo already has a community_id, don't add it
+      if (existingPhoto && existingPhoto.community_id) {
+        toast.error('This photo is already part of another community');
+        return;
+      }
+
+      // If photo doesn't have a community_id, proceed with adding it
       const { error } = await supabase
         .from('photos')
         .insert({

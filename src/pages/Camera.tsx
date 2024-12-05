@@ -115,10 +115,35 @@ const Camera = () => {
     if (!videoRef.current || !canCapture) return;
 
     try {
-      // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         toast.error('Please log in');
+        return;
+      }
+
+      if (!activeCommunity) {
+        toast.error('No active community selected');
+        return;
+      }
+
+      const { data: community, error: communityError } = await supabase
+        .from('communities')
+        .select('start_date, end_date')
+        .eq('id', activeCommunity)
+        .single();
+
+      if (communityError) {
+        console.error('Error fetching community:', communityError);
+        toast.error('Failed to fetch community details');
+        return;
+      }
+
+      const now = new Date();
+      const startDate = community.start_date ? new Date(community.start_date) : null;
+      const endDate = community.end_date ? new Date(community.end_date) : null;
+
+      if ((startDate && now < startDate) || (endDate && now > endDate)) {
+        toast.error('Photos can only be added during the community event');
         return;
       }
 
@@ -136,7 +161,6 @@ const Camera = () => {
 
       const fileName = `${uuidv4()}.jpg`;
 
-      // Upload photo to storage
       const { error: uploadError } = await supabase.storage
         .from('photos')
         .upload(fileName, blob);
@@ -147,12 +171,10 @@ const Camera = () => {
         return;
       }
 
-      // Get the public URL of the uploaded photo
       const { data: { publicUrl } } = supabase.storage
         .from('photos')
         .getPublicUrl(fileName);
 
-      // Create record in photos table
       const { error: dbError } = await supabase
         .from('photos')
         .insert([

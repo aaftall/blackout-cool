@@ -16,6 +16,9 @@ const Login = () => {
     ? location.pathname 
     : location.pathname.replace('/login', '');
 
+  // Get the site URL dynamically
+  const siteUrl = window.location.origin;
+  
   useEffect(() => {
     const handleAuthChange = async (event: any, session: any) => {
       console.log('Auth event received:', event, 'Session:', session);
@@ -205,7 +208,8 @@ const Login = () => {
               },
             }}
             providers={['google']}
-            redirectTo={`${window.location.origin}${redirectPath}`}
+            redirectTo={siteUrl + redirectPath}
+            onlyThirdPartyProviders
           />
         </div>
       </div>

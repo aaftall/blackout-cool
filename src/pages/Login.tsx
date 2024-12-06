@@ -17,19 +17,25 @@ const Login = () => {
   const [isGuidelinesOpen, setIsGuidelinesOpen] = useState(false);
 
   useEffect(() => {
-    // Extract community ID from URL and add it to redirect URL
     if (location.pathname.startsWith('/login/join/')) {
       const communityId = location.pathname.split('/login/join/')[1].split('/')[0];
-      console.log('[Debug] Found community ID in URL:', communityId);
+      console.log('[Debug] Step 1 - Found community ID:', communityId);
       
-      // Create redirect URL using the current origin
-      const redirectUrl = new URL('/login', window.location.origin);
-      redirectUrl.searchParams.set('joining', communityId);
-      
-      console.log('[Debug] Setting redirect URL:', redirectUrl.toString());
-      
-      // Update Auth component's redirectTo
-      setRedirectTo(redirectUrl.toString());
+      try {
+        const storageData = {
+          communityId,
+          timestamp: Date.now(),
+          origin: window.location.origin
+        };
+        localStorage.setItem('joiningCommunityData', JSON.stringify(storageData));
+        console.log('[Debug] Step 2 - Stored data:', storageData);
+        
+        const redirectUrl = '/login';
+        console.log('[Debug] Step 3 - Setting redirect URL:', redirectUrl);
+        setRedirectTo(redirectUrl);
+      } catch (error) {
+        console.error('[Debug] Storage error:', error);
+      }
     }
   }, [location.pathname]);
 
@@ -43,32 +49,27 @@ const Login = () => {
 
     const handleHashFragment = async () => {
       try {
-        const hashParams = new URLSearchParams(window.location.hash.substring(1));
-        const queryParams = new URLSearchParams(window.location.search);
+        console.log('[Debug] Step 4 - Hash fragment handler started');
         
-        console.log('[Debug] Auth parameters:', {
-          hashParams: Object.fromEntries(hashParams),
-          queryParams: Object.fromEntries(queryParams),
-        });
-
-        if (hashParams.has('access_token') || queryParams.has('code')) {
-          const { data: { session }, error } = await supabase.auth.getSession();
-          if (error) throw error;
-          if (session) {
-            console.log('[Debug] Session retrieved:', {
-              user: session.user?.id,
-              expires: session.expires_at
-            });
-            
-            // Get community ID from URL params
-            const joiningCommunityId = queryParams.get('joining');
-            console.log('[Debug] Joining community:', joiningCommunityId);
-            
-            handleAuthSuccess(session, joiningCommunityId);
+        const storedDataStr = localStorage.getItem('joiningCommunityData');
+        if (storedDataStr) {
+          const storedData = JSON.parse(storedDataStr);
+          console.log('[Debug] Step 5 - Found stored data:', storedData);
+          
+          if (Date.now() - storedData.timestamp < 5 * 60 * 1000) {
+            const { data: { session }, error } = await supabase.auth.getSession();
+            if (session) {
+              console.log('[Debug] Step 6 - Got session, using communityId:', storedData.communityId);
+              localStorage.removeItem('joiningCommunityData');
+              handleAuthSuccess(session, storedData.communityId);
+            }
+          } else {
+            console.log('[Debug] Step 5b - Stored data too old, discarding');
+            localStorage.removeItem('joiningCommunityData');
           }
         }
       } catch (error) {
-        console.error('[Debug] Hash handling error:', error);
+        console.error('[Debug] Auth error:', error);
         toast.error('Authentication failed');
       }
     };

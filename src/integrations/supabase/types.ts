@@ -35,6 +35,7 @@ export type Database = {
           name: string;
           created_at: string;
           start_date: string | null;
+          end_date: string | null;
           created_by: string;
         };
         Insert: {
@@ -42,6 +43,7 @@ export type Database = {
           name: string;
           created_at?: string;
           start_date?: string | null;
+          end_date?: string | null;
           created_by: string;
         };
         Update: {
@@ -49,6 +51,7 @@ export type Database = {
           name?: string;
           created_at?: string;
           start_date?: string | null;
+          end_date?: string | null;
           created_by?: string;
         };
       };

@@ -11,98 +11,79 @@ const Login = () => {
   const location = useLocation();
   const [isGuidelinesOpen, setIsGuidelinesOpen] = useState(false);
 
-  // Get the original join path if it exists
-  const redirectPath = location.pathname.startsWith('/login/join/') 
-    ? location.pathname 
-    : location.pathname.replace('/login', '');
+  // Store community ID immediately when component loads
+  useEffect(() => {
+    if (location.pathname.startsWith('/login/join/')) {
+      const communityId = location.pathname.split('/login/join/')[1].split('/')[0];
+      console.log('[Debug] Storing community ID:', communityId);
+      localStorage.setItem('pendingCommunityJoin', communityId);
+    }
+  }, [location.pathname]);
 
-  // Get the site URL dynamically
+  console.log('[Debug] Current pathname:', location.pathname);
+
+  // Get the original join path if it exists
+  const redirectPath = '/login';  // Simplified redirect path
   const siteUrl = window.location.origin;
   
   useEffect(() => {
     const handleAuthChange = async (event: any, session: any) => {
-      console.log('Auth event received:', event, 'Session:', session);
+      console.log('[Debug] Auth event:', { 
+        event, 
+        hasSession: !!session,
+        userId: session?.user?.id,
+        storedCommunityId: localStorage.getItem('pendingCommunityJoin')  // Add this log
+      });
+
       if (event !== 'SIGNED_IN' || !session) return;
 
-      const path = location.pathname;
-      console.log('Current path:', path);
-      
-      if (path.startsWith('/login/join/')) {
-        const communityId = path.split('/login/join/')[1].split('/')[0];
-        console.log('Join attempt:', {
-          communityId,
-          userId: session.user.id,
-          fullPath: path
-        });
-        
+      const pendingCommunityId = localStorage.getItem('pendingCommunityJoin');
+      console.log('[Debug] Join process:', { 
+        pendingCommunityId,
+        userId: session.user.id,
+        pathname: location.pathname
+      });
+
+      if (pendingCommunityId) {
         try {
-          // First verify the community exists
-          const { data: community, error: communityError } = await supabase
-            .from('communities')
-            .select('id')
-            .eq('id', communityId)
-            .single();
-
-          if (communityError || !community) {
-            console.error('Community not found:', communityError);
-            toast.error('Invalid invite link');
-            navigate('/');
-            return;
-          }
-
-          // Check existing membership with detailed error logging
-          const { data: existingMember, error: memberCheckError } = await supabase
-            .from('community_members')
-            .select('*')
-            .eq('community_id', communityId)
-            .eq('user_id', session.user.id)
-            .single();
-
-          console.log('Membership check:', {
-            existingMember,
-            error: memberCheckError,
-            errorCode: memberCheckError?.code,
-            details: memberCheckError?.details
-          });
-
-          if (existingMember) {
-            console.log('User already a member, redirecting...');
-            toast.info('You are already a member of this community');
-            navigate(`/community/${communityId}/gallery`);
-            return;
-          }
-
-          // Add new member with detailed logging
-          const memberData = {
-            community_id: communityId,
+          // Log the insert attempt
+          console.log('[Debug] Attempting to insert:', {
+            community_id: pendingCommunityId,
             user_id: session.user.id,
             user_role: 'member'
-          };
-          
+          });
+
+          // Add new member
           const { data: newMember, error: insertError } = await supabase
             .from('community_members')
-            .insert([memberData])
-            .select()
+            .insert({
+              community_id: pendingCommunityId,
+              user_id: session.user.id,
+              user_role: 'member'
+            })
+            .select()  // Add this to get back the inserted record
             .single();
 
+          console.log('[Debug] Insert result:', {
+            success: !!newMember,
+            error: insertError,
+            newMember
+          });
+
           if (insertError) {
-            console.error('Insert failed:', {
-              error: insertError,
-              errorCode: insertError.code,
-              details: insertError.details,
-              memberData
-            });
             throw insertError;
           }
 
-          console.log('Successfully added member:', newMember);
           toast.success('Successfully joined the community');
-          navigate(`/community/${communityId}/gallery`);
+          navigate(`/community/${pendingCommunityId}/gallery`);
 
         } catch (error) {
-          console.error('Join process failed:', error);
+          console.error('[Debug] Join failed:', error);
           toast.error('Failed to join community');
           navigate('/');
+        } finally {
+          // Clean up
+          localStorage.removeItem('pendingCommunityJoin');
         }
       } else {
         navigate('/');
@@ -208,7 +189,7 @@ const Login = () => {
               },
             }}
             providers={['google']}
-            redirectTo={siteUrl + redirectPath}
+            redirectTo={`${siteUrl}${redirectPath}`}
             onlyThirdPartyProviders
           />
         </div>

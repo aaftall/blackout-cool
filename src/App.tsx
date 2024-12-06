@@ -9,6 +9,7 @@ import Camera from "./pages/Camera";
 import Gallery from "./pages/Gallery";
 import User from "./pages/User";
 import Login from "./pages/Login";
+import { JoinRedirect } from "./components/JoinRedirect";
 
 const queryClient = new QueryClient();
 
@@ -41,11 +42,6 @@ const GalleryWrapper = () => {
   return <Gallery communityId={communityId} />;
 };
 
-const JoinRedirect = () => {
-  const { communityId } = useParams();
-  return <Navigate to={`/login/join/${communityId}`} replace />;
-};
-
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -54,7 +50,7 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
-          <Route path="/login/join/:communityId" element={<Login />} />
+          <Route path="/join/:communityId" element={<JoinRedirect />} />
           <Route
             path="/"
             element={
@@ -79,7 +75,7 @@ const App = () => (
               </ProtectedRoute>
             }
           />
-          <Route path="/join/:communityId" element={<JoinRedirect />} />
+          <Route path="/login/join/:communityId" element={<Login />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

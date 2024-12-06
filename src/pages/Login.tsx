@@ -10,7 +10,10 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [redirectTo, setRedirectTo] = useState(`${window.location.origin}/login`);
+  const [redirectTo, setRedirectTo] = useState(() => {
+    const baseUrl = window.location.origin;
+    return `${baseUrl}/login`;
+  });
   const [isGuidelinesOpen, setIsGuidelinesOpen] = useState(false);
 
   useEffect(() => {
@@ -19,8 +22,8 @@ const Login = () => {
       const communityId = location.pathname.split('/login/join/')[1].split('/')[0];
       console.log('[Debug] Found community ID in URL:', communityId);
       
-      // Store the ID in the redirect URL
-      const redirectUrl = new URL(`${window.location.origin}/login`);
+      // Create redirect URL using the current origin
+      const redirectUrl = new URL('/login', window.location.origin);
       redirectUrl.searchParams.set('joining', communityId);
       
       console.log('[Debug] Setting redirect URL:', redirectUrl.toString());
@@ -224,6 +227,9 @@ const Login = () => {
             providers={['google']}
             redirectTo={redirectTo}
             onlyThirdPartyProviders
+            queryParams={{
+              redirect_to: redirectTo
+            }}
           />
         </div>
       </div>

@@ -19,81 +19,65 @@ const Login = () => {
   useEffect(() => {
     if (location.pathname.startsWith('/login/join/')) {
       const communityId = location.pathname.split('/login/join/')[1].split('/')[0];
-      console.log('[Debug] Found community ID:', communityId);
+      console.log('[Debug] Step 1: Setting up redirect with community:', communityId);
       
-      const joinData = {
-        communityId,
-        joinPath: location.pathname,
-        timestamp: Date.now()
-      };
-      localStorage.setItem('pendingJoinCommunityId', JSON.stringify(joinData));
-      console.log('[Debug] Stored join data:', joinData);
+      const redirectUrl = new URL('/login', window.location.origin);
+      redirectUrl.searchParams.set('joining', communityId);
+      console.log('[Debug] Step 2: Redirect URL set to:', redirectUrl.toString());
+      setRedirectTo(redirectUrl.toString());
     }
   }, [location.pathname]);
 
   useEffect(() => {
-    const handleAuth = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const storedData = localStorage.getItem('pendingJoinCommunityId');
-        
-        console.log('[Debug] Auth check:', { 
-          hasSession: !!session, 
-          storedData,
-          userId: session?.user?.id,
-          currentPath: location.pathname
-        });
+    console.log('[Debug] URL changed:', window.location.href);
+    console.log('[Debug] Search params:', new URLSearchParams(window.location.search).toString());
+    
+    const handlePostAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const params = new URLSearchParams(window.location.search);
+      const joiningCommunityId = params.get('joining');
 
-        if (session?.user && storedData) {
-          const { communityId } = JSON.parse(storedData);
-          
+      console.log('[Debug] Post-auth check:', { 
+        hasSession: !!session, 
+        joiningCommunityId,
+        userId: session?.user?.id 
+      });
+
+      if (session?.user && joiningCommunityId) {
+        try {
           const { error: joinError } = await supabase
             .from('community_members')
             .insert({
-              community_id: communityId,
+              community_id: joiningCommunityId,
               user_id: session.user.id,
               user_role: 'member',
               joined_at: new Date().toISOString()
             });
 
-          localStorage.removeItem('pendingJoinCommunityId');
-
           if (joinError) {
-            console.log('[Debug] Join attempt result:', { error: joinError });
-            
             if (joinError.code === '23505') {
-              console.log('[Debug] Already a member, redirecting to gallery');
+              console.log('[Debug] Already a member');
               toast.success('Already a member of this community');
-              navigate(`/community/${communityId}/gallery`);
+              navigate(`/community/${joiningCommunityId}/gallery`);
               return;
             }
             throw joinError;
           }
 
-          console.log('[Debug] Successfully joined, redirecting to gallery');
+          console.log('[Debug] Successfully joined community');
           toast.success('Successfully joined the community');
-          navigate(`/community/${communityId}/gallery`);
+          navigate(`/community/${joiningCommunityId}/gallery`);
+        } catch (error) {
+          console.error('[Debug] Join error:', error);
+          toast.error('Failed to join community');
+          navigate('/');
         }
-      } catch (error) {
-        console.error('[Debug] Join error:', error);
-        toast.error('Failed to join community');
-        navigate('/');
       }
     };
 
-    handleAuth();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('[Debug] Auth state changed:', { event, userId: session?.user?.id });
-      if (event === 'SIGNED_IN') {
-        handleAuth();
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [navigate, location.pathname]);
+    handlePostAuth();
+  }, [location.search, navigate]);
 
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center p-6">

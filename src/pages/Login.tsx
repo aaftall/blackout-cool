@@ -11,8 +11,8 @@ const Login = () => {
   const location = useLocation();
 
   const [redirectTo, setRedirectTo] = useState(() => {
-    const baseUrl = window.location.origin;
-    return `${baseUrl}/login`;
+    const currentUrl = new URL(window.location.href);
+    return currentUrl.toString();
   });
   const [isGuidelinesOpen, setIsGuidelinesOpen] = useState(false);
 
@@ -20,28 +20,37 @@ const Login = () => {
     if (location.pathname.startsWith('/login/join/')) {
       const communityId = location.pathname.split('/login/join/')[1].split('/')[0];
       console.log('[Debug] Found community ID:', communityId);
-      localStorage.setItem('pendingJoinCommunityId', communityId);
+      
+      const joinData = {
+        communityId,
+        joinPath: location.pathname,
+        timestamp: Date.now()
+      };
+      localStorage.setItem('pendingJoinCommunityId', JSON.stringify(joinData));
+      console.log('[Debug] Stored join data:', joinData);
     }
   }, [location.pathname]);
 
   useEffect(() => {
     const handleAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      const pendingCommunityId = localStorage.getItem('pendingJoinCommunityId');
-      
-      console.log('[Debug] Auth check:', { 
-        hasSession: !!session, 
-        pendingCommunityId,
-        userId: session?.user?.id 
-      });
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const storedData = localStorage.getItem('pendingJoinCommunityId');
+        
+        console.log('[Debug] Auth check:', { 
+          hasSession: !!session, 
+          storedData,
+          userId: session?.user?.id,
+          currentPath: location.pathname
+        });
 
-      if (session?.user && pendingCommunityId) {
-        try {
-          // Try to add user to community
+        if (session?.user && storedData) {
+          const { communityId } = JSON.parse(storedData);
+          
           const { error: joinError } = await supabase
             .from('community_members')
             .insert({
-              community_id: pendingCommunityId,
+              community_id: communityId,
               user_id: session.user.id,
               user_role: 'member',
               joined_at: new Date().toISOString()
@@ -50,31 +59,32 @@ const Login = () => {
           localStorage.removeItem('pendingJoinCommunityId');
 
           if (joinError) {
-            if (joinError.code === '23505') { // Duplicate key error
-              console.log('[Debug] Already a member');
+            console.log('[Debug] Join attempt result:', { error: joinError });
+            
+            if (joinError.code === '23505') {
+              console.log('[Debug] Already a member, redirecting to gallery');
               toast.success('Already a member of this community');
-              navigate(`/community/${pendingCommunityId}/gallery`);
+              navigate(`/community/${communityId}/gallery`);
               return;
             }
             throw joinError;
           }
 
-          console.log('[Debug] Successfully joined community');
+          console.log('[Debug] Successfully joined, redirecting to gallery');
           toast.success('Successfully joined the community');
-          navigate(`/community/${pendingCommunityId}/gallery`);
-        } catch (error) {
-          console.error('[Debug] Join error:', error);
-          toast.error('Failed to join community');
-          navigate('/');
+          navigate(`/community/${communityId}/gallery`);
         }
+      } catch (error) {
+        console.error('[Debug] Join error:', error);
+        toast.error('Failed to join community');
+        navigate('/');
       }
     };
 
-    // Run auth check when component mounts and when auth state changes
     handleAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('[Debug] Auth state changed:', event);
+      console.log('[Debug] Auth state changed:', { event, userId: session?.user?.id });
       if (event === 'SIGNED_IN') {
         handleAuth();
       }
@@ -83,7 +93,7 @@ const Login = () => {
     return () => {
       subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, [navigate, location.pathname]);
 
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center p-6">
@@ -179,9 +189,6 @@ const Login = () => {
             providers={['google']}
             redirectTo={redirectTo}
             onlyThirdPartyProviders
-            queryParams={{
-              redirect_to: redirectTo
-            }}
           />
         </div>
       </div>

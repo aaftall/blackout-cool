@@ -11,37 +11,37 @@ const Login = () => {
   const location = useLocation();
   const [isGuidelinesOpen, setIsGuidelinesOpen] = useState(false);
 
+  // Store community ID from URL if present
   useEffect(() => {
-    // Debug the initial state
+    if (location.pathname.startsWith('/login/join/')) {
+      const communityId = location.pathname.split('/login/join/')[1].split('/')[0];
+      console.log('[Debug] Storing community ID:', communityId);
+      sessionStorage.setItem('pendingCommunityJoin', communityId);
+    }
+  }, [location.pathname]);
+
+  useEffect(() => {
     console.log('[Debug] Login page loaded:', {
       pathname: location.pathname,
       hash: window.location.hash,
-      search: window.location.search
+      search: window.location.search,
+      storedCommunityId: sessionStorage.getItem('pendingCommunityJoin')
     });
 
-    // Handle hash fragment from OAuth
     const handleHashFragment = async () => {
       try {
         console.log('[Debug] Checking auth parameters');
-        // Check for both hash and query parameters
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         const queryParams = new URLSearchParams(window.location.search);
         
-        console.log('[Debug] Auth parameters:', {
-          hashParams: Object.fromEntries(hashParams),
-          queryParams: Object.fromEntries(queryParams),
-        });
-
-        // Check both locations for auth-related parameters
         if (hashParams.has('access_token') || queryParams.has('code')) {
           console.log('[Debug] Found auth parameters in URL');
           const { data: { session }, error } = await supabase.auth.getSession();
           if (error) throw error;
           if (session) {
-            console.log('[Debug] Session retrieved:', {
-              user: session.user?.id,
-              expires: session.expires_at
-            });
+            const pendingCommunityId = sessionStorage.getItem('pendingCommunityJoin');
+            console.log('[Debug] Retrieved stored community ID:', pendingCommunityId);
+            
             handleAuthSuccess(session);
           }
         }
@@ -55,13 +55,12 @@ const Login = () => {
   }, [location]);
 
   const handleAuthSuccess = async (session: any) => {
-    const pendingCommunityId = localStorage.getItem('pendingCommunityJoin');
+    const pendingCommunityId = sessionStorage.getItem('pendingCommunityJoin');
     
-    console.log('[Debug] Auth Success - Full Details:', {
-      session_id: session?.id,
-      user_id: session?.user?.id,
+    console.log('[Debug] Starting auth success handler:', {
       pendingCommunityId,
-      pathname: window.location.pathname
+      user: session?.user?.id,
+      timestamp: new Date().toISOString()
     });
 
     if (pendingCommunityId && session?.user) {
@@ -128,7 +127,7 @@ const Login = () => {
         toast.error(error.message || 'Failed to join community');
         navigate('/');
       } finally {
-        localStorage.removeItem('pendingCommunityJoin');
+        sessionStorage.removeItem('pendingCommunityJoin');
       }
     } else {
       console.log('[Debug] No pending join or invalid session:', {
@@ -138,15 +137,6 @@ const Login = () => {
       navigate('/');
     }
   };
-
-  // Store community ID from URL if present
-  useEffect(() => {
-    if (location.pathname.startsWith('/login/join/')) {
-      const communityId = location.pathname.split('/login/join/')[1].split('/')[0];
-      console.log('[Debug] Storing community ID:', communityId);
-      localStorage.setItem('pendingCommunityJoin', communityId);
-    }
-  }, [location.pathname]);
 
   const siteUrl = window.location.origin;
   const redirectPath = '/login';

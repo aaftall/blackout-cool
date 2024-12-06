@@ -442,6 +442,25 @@ const User = () => {
             )}
           </div>
 
+          <div className="p-4 rounded-lg bg-camera-controls">
+            <h3 className="text-lg font-semibold mb-2">Join a Community</h3>
+            <div className="flex gap-2">
+              <Input
+                type="text"
+                value={inviteLink}
+                onChange={(e) => setInviteLink(e.target.value)}
+                placeholder="Paste invite link here"
+                className="flex-1 bg-black/20 border-none text-white placeholder-white/50"
+              />
+              <Button 
+                onClick={handleInviteLinkSubmit}
+                className="bg-black hover:bg-black/90"
+              >
+                Join
+              </Button>
+            </div>
+          </div>
+
           <div className="grid gap-4">
             {groups.map((group) => (
               <div

@@ -19,120 +19,71 @@ const Login = () => {
   useEffect(() => {
     if (location.pathname.startsWith('/login/join/')) {
       const communityId = location.pathname.split('/login/join/')[1].split('/')[0];
-      console.log('[Debug] Step 1 - Found community ID:', communityId);
-      
-      try {
-        const storageData = {
-          communityId,
-          timestamp: Date.now(),
-          origin: window.location.origin
-        };
-        localStorage.setItem('joiningCommunityData', JSON.stringify(storageData));
-        console.log('[Debug] Step 2 - Stored data:', storageData);
-        
-        const redirectUrl = '/login';
-        console.log('[Debug] Step 3 - Setting redirect URL:', redirectUrl);
-        setRedirectTo(redirectUrl);
-      } catch (error) {
-        console.error('[Debug] Storage error:', error);
-      }
+      console.log('[Debug] Found community ID:', communityId);
+      localStorage.setItem('pendingJoinCommunityId', communityId);
     }
   }, [location.pathname]);
 
   useEffect(() => {
-    console.log('[Debug] Login page loaded:', {
-      pathname: location.pathname,
-      hash: window.location.hash,
-      search: window.location.search,
-      params: new URLSearchParams(location.search)
-    });
+    const handleAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const pendingCommunityId = localStorage.getItem('pendingJoinCommunityId');
+      
+      console.log('[Debug] Auth check:', { 
+        hasSession: !!session, 
+        pendingCommunityId,
+        userId: session?.user?.id 
+      });
 
-    const handleHashFragment = async () => {
-      try {
-        console.log('[Debug] Step 4 - Hash fragment handler started');
-        
-        const storedDataStr = localStorage.getItem('joiningCommunityData');
-        if (storedDataStr) {
-          const storedData = JSON.parse(storedDataStr);
-          console.log('[Debug] Step 5 - Found stored data:', storedData);
-          
-          if (Date.now() - storedData.timestamp < 5 * 60 * 1000) {
-            const { data: { session }, error } = await supabase.auth.getSession();
-            if (session) {
-              console.log('[Debug] Step 6 - Got session, using communityId:', storedData.communityId);
-              localStorage.removeItem('joiningCommunityData');
-              handleAuthSuccess(session, storedData.communityId);
+      if (session?.user && pendingCommunityId) {
+        try {
+          // Try to add user to community
+          const { error: joinError } = await supabase
+            .from('community_members')
+            .insert({
+              community_id: pendingCommunityId,
+              user_id: session.user.id,
+              user_role: 'member',
+              joined_at: new Date().toISOString()
+            });
+
+          localStorage.removeItem('pendingJoinCommunityId');
+
+          if (joinError) {
+            if (joinError.code === '23505') { // Duplicate key error
+              console.log('[Debug] Already a member');
+              toast.success('Already a member of this community');
+              navigate(`/community/${pendingCommunityId}/gallery`);
+              return;
             }
-          } else {
-            console.log('[Debug] Step 5b - Stored data too old, discarding');
-            localStorage.removeItem('joiningCommunityData');
+            throw joinError;
           }
+
+          console.log('[Debug] Successfully joined community');
+          toast.success('Successfully joined the community');
+          navigate(`/community/${pendingCommunityId}/gallery`);
+        } catch (error) {
+          console.error('[Debug] Join error:', error);
+          toast.error('Failed to join community');
+          navigate('/');
         }
-      } catch (error) {
-        console.error('[Debug] Auth error:', error);
-        toast.error('Authentication failed');
       }
     };
 
-    handleHashFragment();
-  }, [location]);
+    // Run auth check when component mounts and when auth state changes
+    handleAuth();
 
-  const handleAuthSuccess = async (session: any, communityId: string | null) => {
-    console.log('[Debug] Starting auth success handler:', {
-      communityId,
-      user: session?.user?.id,
-      timestamp: new Date().toISOString()
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('[Debug] Auth state changed:', event);
+      if (event === 'SIGNED_IN') {
+        handleAuth();
+      }
     });
 
-    if (!session?.user?.id) {
-      console.error('[Debug] No valid user ID in session');
-      toast.error('Authentication error');
-      navigate('/');
-      return;
-    }
-
-    if (!communityId) {
-      console.log('[Debug] No community ID to join');
-      navigate('/');
-      return;
-    }
-
-    try {
-      const { data: newMember, error: insertError } = await supabase
-        .from('community_members')
-        .insert({
-          community_id: communityId,
-          user_id: session.user.id,
-          user_role: 'member',
-          joined_at: new Date().toISOString()
-        })
-        .select('id, community_id, user_id')
-        .single();
-
-      console.log('[Debug] Insert attempt result:', {
-        success: !!newMember,
-        error: insertError,
-        data: newMember
-      });
-
-      if (insertError) {
-        if (insertError.code === '23505') {
-          console.log('[Debug] User already a member');
-          toast.success('Already a member of this community');
-          navigate(`/community/${communityId}/gallery`);
-          return;
-        }
-        throw insertError;
-      }
-
-      toast.success('Successfully joined the community');
-      navigate(`/community/${communityId}/gallery`);
-    } catch (error: any) {
-      console.error('[Debug] Join process failed:', error);
-      toast.error('Failed to join community');
-      navigate('/');
-    }
-  };
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [navigate]);
 
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center p-6">

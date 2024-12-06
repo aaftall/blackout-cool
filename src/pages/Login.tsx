@@ -15,19 +15,23 @@ const Login = () => {
     // Handle hash fragment from OAuth
     const handleHashFragment = async () => {
       try {
+        // Check for both hash and query parameters
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
-        if (hashParams.has('access_token')) {
-          console.log('[Debug] Found access token in URL');
+        const queryParams = new URLSearchParams(window.location.search);
+        
+        // Check both locations for auth-related parameters
+        if (hashParams.has('access_token') || queryParams.has('code')) {
+          console.log('[Debug] Found auth parameters in URL');
           const { data: { session }, error } = await supabase.auth.getSession();
           if (error) throw error;
           if (session) {
             console.log('[Debug] Session retrieved:', !!session);
-            // Handle the auth success
             handleAuthSuccess(session);
           }
         }
       } catch (error) {
         console.error('[Debug] Hash handling error:', error);
+        toast.error('Authentication failed');
       }
     };
 
@@ -36,36 +40,85 @@ const Login = () => {
 
   const handleAuthSuccess = async (session: any) => {
     const pendingCommunityId = localStorage.getItem('pendingCommunityJoin');
-    console.log('[Debug] Processing auth success:', {
+    
+    console.log('[Debug] Auth Success - Full Details:', {
+      session_id: session?.id,
+      user_id: session?.user?.id,
       pendingCommunityId,
-      userId: session?.user?.id
+      pathname: window.location.pathname
     });
 
     if (pendingCommunityId && session?.user) {
       try {
+        // First verify the community exists
+        const { data: community, error: communityError } = await supabase
+          .from('communities')
+          .select('id')
+          .eq('id', pendingCommunityId)
+          .single();
+
+        if (communityError) {
+          console.error('[Debug] Community verification failed:', communityError);
+          throw new Error('Invalid community');
+        }
+
+        // Then check for existing membership
+        const { data: existingMember, error: checkError } = await supabase
+          .from('community_members')
+          .select('id')
+          .eq('community_id', pendingCommunityId)
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+
+        if (checkError) {
+          console.error('[Debug] Membership check failed:', checkError);
+          throw checkError;
+        }
+
+        if (existingMember) {
+          console.log('[Debug] Already a member:', existingMember);
+          toast.success('Already a member of this community');
+          navigate(`/community/${pendingCommunityId}/gallery`);
+          return;
+        }
+
+        // Finally, insert the new member
         const { data: newMember, error: insertError } = await supabase
           .from('community_members')
           .insert({
             community_id: pendingCommunityId,
             user_id: session.user.id,
-            user_role: 'member'
+            user_role: 'member',
+            joined_at: new Date().toISOString()
           })
           .select()
           .single();
 
-        if (insertError) throw insertError;
+        if (insertError) {
+          console.error('[Debug] Insert failed:', insertError);
+          throw insertError;
+        }
 
-        console.log('[Debug] Member added:', newMember);
+        console.log('[Debug] Successfully joined:', newMember);
         toast.success('Successfully joined the community');
         navigate(`/community/${pendingCommunityId}/gallery`);
-      } catch (error) {
-        console.error('[Debug] Join failed:', error);
-        toast.error('Failed to join community');
+      } catch (error: any) {
+        console.error('[Debug] Join process failed:', {
+          error,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
+        toast.error(error.message || 'Failed to join community');
         navigate('/');
       } finally {
         localStorage.removeItem('pendingCommunityJoin');
       }
     } else {
+      console.log('[Debug] No pending join or invalid session:', {
+        hasPendingId: !!pendingCommunityId,
+        hasUser: !!session?.user
+      });
       navigate('/');
     }
   };

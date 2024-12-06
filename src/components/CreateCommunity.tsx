@@ -47,10 +47,10 @@ export function CreateCommunity({ onSuccess, onCancel }: CreateCommunityProps) {
         start_date: data.start_date || null,
         end_date: data.end_date || null
       });
-      toast.success('Community created successfully');
+      toast.success('Party successfully created');
     } catch (error) {
-      console.error('Failed to create community:', error);
-      toast.error('Failed to create community');
+      console.error('Failed to create the party:', error);
+      toast.error('Failed to create the party');
     } finally {
       setIsLoading(false);
     }

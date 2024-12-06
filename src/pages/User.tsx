@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, Image, Users, Link as LinkIcon, PlusCircle, Pencil, Trash2 } from 'lucide-react';
+import { Camera, Image, Users, Link as LinkIcon, PlusCircle, Pencil, Trash2, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
@@ -11,8 +11,26 @@ import type { Database } from '@/integrations/supabase/types';
 import { CreateCommunity } from '@/components/CreateCommunity';
 import DatePicker from 'react-datepicker';
 
+type CommunityMember = {
+  community: {
+    id: string;
+    name: string;
+    created_by: string;
+    start_date: string | null;
+    end_date: string | null;
+  };
+  user_role: string;
+}
+
 type Community = Database['public']['Tables']['communities']['Row'] & {
   end_date?: string | null;
+  user_role: string;
+  member_count: number;
+};
+
+const isAlbumViewable = (endDate: string | null) => {
+  if (!endDate) return false;
+  return new Date() > new Date(endDate);
 };
 
 const User = () => {
@@ -74,8 +92,10 @@ const User = () => {
               created_at,
               start_date,
               end_date,
-              created_by
-            )
+              created_by,
+              community_members (count)
+            ),
+            user_role
           `)
           .eq('user_id', user.id);
 
@@ -86,10 +106,12 @@ const User = () => {
           console.error('Communities fetch error:', memberError);
           toast.error('Failed to load communities');
         } else {
-          const communities = userCommunities
-            ?.flatMap(item => item.community)
-            .filter(community => community !== null);
-          setGroups(communities || []);
+          const communities = userCommunities?.map(member => ({
+            ...member.community,
+            user_role: member.user_role,
+            member_count: member.community.community_members[0].count
+          })) || [];
+          setGroups(communities);
         }
       } catch (error) {
         console.error('Error loading profile:', error);
@@ -154,7 +176,7 @@ const User = () => {
     
     navigator.clipboard.writeText(inviteLink)
       .then(() => {
-        toast.success(`Invite link copied: ${inviteLink}`);
+        toast.success('Invite link copied to clipboard');
       })
       .catch(() => {
         const textarea = document.createElement('textarea');
@@ -163,7 +185,7 @@ const User = () => {
         textarea.select();
         try {
           document.execCommand('copy');
-          toast.success(`Invite link copied: ${inviteLink}`);
+          toast.success('Invite link copied to clipboard');
         } catch (err) {
           toast.error('Failed to copy link');
         }
@@ -185,14 +207,58 @@ const User = () => {
     if (!confirmDelete) return;
 
     try {
-      const { error } = await supabase
+      // Get current user first
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error('Authentication required');
+        return;
+      }
+
+      // Check if user is admin
+      const { data: membership, error: membershipError } = await supabase
+        .from('community_members')
+        .select('user_role')
+        .eq('community_id', communityId)
+        .eq('user_id', user.id)
+        .single();
+
+      if (membershipError) {
+        console.error('Membership check error:', membershipError);
+        toast.error('Failed to verify permissions');
+        return;
+      }
+
+      if (membership?.user_role !== 'admin') {
+        toast.error('Only admins can delete communities');
+        return;
+      }
+
+      // First delete all community members
+      const { error: membersError } = await supabase
+        .from('community_members')
+        .delete()
+        .eq('community_id', communityId);
+
+      if (membersError) {
+        console.error('Failed to delete members:', membersError);
+        toast.error('Failed to delete community members');
+        return;
+      }
+
+      // Then delete the community
+      const { error: communityError } = await supabase
         .from('communities')
         .delete()
         .eq('id', communityId);
       
-      if (error) throw error;
+      if (communityError) {
+        console.error('Failed to delete community:', communityError);
+        toast.error('Failed to delete community');
+        return;
+      }
       
       setGroups(groups.filter(group => group.id !== communityId));
+      toast.success('Community deleted successfully');
     } catch (error) {
       console.error('Delete error:', error);
       toast.error('Failed to delete community');
@@ -256,7 +322,7 @@ const User = () => {
         throw joinError;
       }
 
-      toast.success('Successfully joined the community');
+      toast.success('You are in! BO like at a Sete');
       navigate(`/community/${communityId}/gallery`);
     } catch (error) {
       console.error('Join error:', error);
@@ -270,6 +336,52 @@ const User = () => {
       handleJoinCommunity(communityId);
     } else {
       toast.error('Invalid invite link');
+    }
+  };
+
+  const handleViewAlbum = (group: Community) => {
+    if (!isAlbumViewable(group.end_date)) {
+      const diffTime = group.end_date ? new Date(group.end_date).getTime() - new Date().getTime() : 0;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const diffHours = Math.ceil(diffTime / (1000 * 60 * 60));
+      
+      let timeMessage;
+      if (diffDays > 1) {
+        timeMessage = `${diffDays} days`;
+      } else if (diffHours > 1) {
+        timeMessage = `${diffHours} hours`;
+      } else {
+        timeMessage = 'less than an hour';
+      }
+      
+      toast.error(`${group.name} album will be available in ${timeMessage}`);
+      return;
+    }
+    
+    navigate(`/community/${group.id}/gallery`);
+  };
+
+  const handleLeaveCommunity = async (communityId: string) => {
+    const confirmLeave = window.confirm('Are you sure you want to leave this community?');
+    if (!confirmLeave) return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase
+        .from('community_members')
+        .delete()
+        .eq('community_id', communityId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setGroups(groups.filter(group => group.id !== communityId));
+      toast.success('Successfully left the community');
+    } catch (error) {
+      console.error('Leave error:', error);
+      toast.error('Failed to leave community');
     }
   };
 
@@ -351,7 +463,7 @@ const User = () => {
 
         <div className="space-y-4 mt-8">
           <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold">My Groups</h2>
+            <h2 className="text-xl font-semibold">My BO</h2>
             {showCreateCommunity ? (
               <CreateCommunity
                 onSuccess={async (community: { id: string; name: string; start_date?: string | null; end_date?: string | null }) => {
@@ -370,7 +482,9 @@ const User = () => {
                       created_at: new Date().toISOString(),
                       created_by: user.id,
                       start_date: community.start_date || null,
-                      end_date: community.end_date || null
+                      end_date: community.end_date || null,
+                      user_role: 'admin',
+                      member_count: 1
                     } satisfies Community;
                     
                     if (!community.id) {
@@ -437,13 +551,13 @@ const User = () => {
                 className="bg-camera-controls hover:bg-opacity-80"
               >
                 <PlusCircle className="w-4 h-4 mr-2" />
-                Create Community
+                Create a Blackout
               </Button>
             )}
           </div>
 
           <div className="p-4 rounded-lg bg-camera-controls">
-            <h3 className="text-lg font-semibold mb-2">Join a Community</h3>
+            <h3 className="text-lg font-semibold mb-2">Join a BO</h3>
             <div className="flex gap-2">
               <Input
                 type="text"
@@ -468,7 +582,12 @@ const User = () => {
                 className="p-4 rounded-lg flex flex-col sm:flex-row justify-between items-center bg-camera-controls gap-3"
               >
                 <div className="flex items-center gap-3 flex-grow">
-                  <Users className="w-5 h-5" />
+                  <div className="flex items-center gap-1">
+                    <Users className="w-5 h-5" />
+                    <span className="text-sm text-gray-400">
+                      {group.member_count}
+                    </span>
+                  </div>
                   {editingCommunityId === group.id ? (
                     <div className="flex flex-col gap-2 w-full">
                       <Input
@@ -533,26 +652,52 @@ const User = () => {
                 <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto items-center">
                   <Button
                     variant="ghost"
-                    onClick={() => navigate(`/community/${group.id}/gallery`)}
-                    className="flex items-center gap-2 bg-gradient-to-r from-purple-500 via-pink-500 to-red-500 text-white transition-all duration-300 hover:from-red-500 hover:via-pink-500 hover:text-white hover:to-purple-500 w-full sm:w-auto"
+                    onClick={() => handleViewAlbum(group)}
+                    className={`flex items-center gap-2 ${
+                      isAlbumViewable(group.end_date)
+                        ? 'bg-gradient-to-r from-purple-500 via-pink-500 to-red-500 text-white transition-all duration-300 hover:from-red-500 hover:via-pink-500 hover:text-white hover:to-purple-500'
+                        : 'bg-gray-500 text-gray-300'
+                    } w-full sm:w-auto`}
                   >
                     <Image className="w-4 h-4" />
-                    View album
+                    {isAlbumViewable(group.end_date) ? 'View album' : 'Album not ready'}
                   </Button>
                   <div className="flex gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        setEditingCommunityId(group.id);
-                        setEditingCommunityName(group.name);
-                        setEditingCommunityDate(group.start_date || '');
-                        setEditingCommunityEndDate(group.end_date || '');
-                      }}
-                      className="hover:bg-opacity-80"
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </Button>
+                    {group.user_role === 'admin' ? (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setEditingCommunityId(group.id);
+                            setEditingCommunityName(group.name);
+                            setEditingCommunityDate(group.start_date || '');
+                            setEditingCommunityEndDate(group.end_date || '');
+                          }}
+                          className="hover:bg-opacity-80"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteGroup(group.id)}
+                          className="hover:bg-opacity-80 hover:text-red-500"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleLeaveCommunity(group.id)}
+                        className="hover:bg-opacity-80 hover:text-red-500"
+                        title="Leave community"
+                      >
+                        <LogOut className="w-4 h-4" />
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"
@@ -560,14 +705,6 @@ const User = () => {
                       className="hover:bg-opacity-80"
                     >
                       <LinkIcon className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDeleteGroup(group.id)}
-                      className="hover:bg-opacity-80 hover:text-red-500"
-                    >
-                      <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
                 </div>

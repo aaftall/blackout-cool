@@ -29,7 +29,7 @@ const Camera = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const today = new Date();
+      const now = new Date();
       
       const { data: communities, error } = await supabase
         .from('community_members')
@@ -38,30 +38,40 @@ const Camera = () => {
             id,
             name,
             created_by,
-            start_date
+            start_date,
+            end_date
           )
         `)
-        .eq('user_id', user.id) as unknown as { data: CommunityMember[], error: any };
+        .eq('user_id', user.id);
 
       if (error) {
         console.error('Error fetching communities:', error);
         return;
       }
 
-      const activeComm = communities?.find(({ community }) => {
-        if (!community?.start_date) return false;
-        const startDate = new Date(community.start_date);
-        const dayBefore = new Date(startDate);
-        dayBefore.setDate(dayBefore.getDate() - 1);
-        const dayAfter = new Date(startDate);
-        dayAfter.setDate(dayAfter.getDate() + 1);
-        
-        return today >= dayBefore && today <= dayAfter;
-      });
+      // Filter communities that haven't ended yet
+      const activeCommunities = communities
+        ?.filter(({ community }) => {
+          if (!community?.end_date) return false;
+          const endDate = new Date(community.end_date);
+          return now <= endDate;
+        })
+        .map(({ community }) => ({
+          ...community,
+          endDate: new Date(community.end_date!)
+        }));
 
-      if (activeComm?.community) {
-        setActiveCommunity(activeComm.community.id);
-        toast.success(`Photos will be added to ${activeComm.community.name}`);
+      // Find community with closest end date
+      const closestCommunity = activeCommunities?.sort((a, b) => 
+        a.endDate.getTime() - b.endDate.getTime()
+      )[0];
+
+      if (closestCommunity) {
+        setActiveCommunity(closestCommunity.id);
+        toast.success(`Photos will be added to ${closestCommunity.name}`);
+      } else {
+        setActiveCommunity(null);
+        toast.error('No active BO found. Join or create one to start capturing photos.');
       }
     };
 
@@ -122,28 +132,25 @@ const Camera = () => {
       }
 
       if (!activeCommunity) {
-        toast.error('No active community selected');
+        toast.error('No active Blackout found. Create a new one to start capturing photos.');
         return;
       }
 
+      // Check if community is still active
       const { data: community, error: communityError } = await supabase
         .from('communities')
-        .select('start_date, end_date')
+        .select('end_date, name')
         .eq('id', activeCommunity)
         .single();
 
-      if (communityError) {
-        console.error('Error fetching community:', communityError);
-        toast.error('Failed to fetch community details');
-        return;
-      }
+      if (communityError) throw communityError;
 
       const now = new Date();
-      const startDate = community.start_date ? new Date(community.start_date) : null;
       const endDate = community.end_date ? new Date(community.end_date) : null;
 
-      if ((startDate && now < startDate) || (endDate && now > endDate)) {
-        toast.error('Photos can only be added during the community event');
+      if (!endDate || now > endDate) {
+        toast.error(`Cannot add photos to ${community.name} - event has ended`);
+        setActiveCommunity(null);
         return;
       }
 
@@ -195,8 +202,8 @@ const Camera = () => {
         ? 'Photo captured and saved to community' 
         : 'Photo captured and saved');
       startCooldown();
-    } catch (err) {
-      console.error('Capture error:', err);
+    } catch (error) {
+      console.error('Capture error:', error);
       toast.error('Failed to capture photo');
     }
   }, [canCapture, startCooldown, activeCommunity]);

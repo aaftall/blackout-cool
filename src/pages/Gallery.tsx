@@ -32,35 +32,54 @@ const Gallery = ({ communityId }: GalleryProps) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchPhotos = async () => {
-      if (!communityId) {
-        toast.error('No community ID provided');
-        return;
-      }
-
-      setLoading(true);
-      
+    const loadPhotos = async () => {
       try {
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
-        if (userError) throw userError;
+        const { data: community, error: communityError } = await supabase
+          .from('communities')
+          .select('end_date, name')
+          .eq('id', communityId!)
+          .single();
+
+        if (communityError) throw communityError;
+
+        const now = new Date();
+        const endDate = community.end_date ? new Date(community.end_date) : null;
+        
+        if (!endDate || now < endDate) {
+          const diffTime = endDate ? endDate.getTime() - now.getTime() : 0;
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          const diffHours = Math.ceil(diffTime / (1000 * 60 * 60));
+          
+          let timeMessage;
+          if (diffDays > 1) {
+            timeMessage = `${diffDays} days`;
+          } else if (diffHours > 1) {
+            timeMessage = `${diffHours} hours`;
+          } else {
+            timeMessage = 'less than an hour';
+          }
+          
+          toast.error(
+            `${community.name} album will be available in ${timeMessage}`,
+            { duration: 5000 }
+          );
+          navigate('/user');
+          return;
+        }
 
         const { data: photosData, error: photosError } = await supabase
           .from('photos')
           .select('*')
-          .eq('community_id', communityId);
+          .eq('community_id', communityId!)
+          .order('created_at', { ascending: false });
 
         if (photosError) throw photosError;
 
-        console.log('Raw photos data:', photosData);
-
-        // Transform the photos data to include proper public URLs
         const photosWithUrls = photosData?.map(photo => {
-          // Check if the URL is already a full Supabase URL
           if (photo.photo_url.startsWith('http')) {
             return photo;
           }
 
-          // Only get public URL if it's not already a full URL
           const { data: publicUrlData } = supabase.storage
             .from('photos')
             .getPublicUrl(photo.photo_url);
@@ -72,15 +91,18 @@ const Gallery = ({ communityId }: GalleryProps) => {
         }) || [];
 
         setPhotos(photosWithUrls);
+        setLoading(false);
+
       } catch (error) {
-        console.error('Error fetching photos:', error);
+        console.error('Error loading photos:', error);
         toast.error('Failed to load photos');
-      } finally {
         setLoading(false);
       }
     };
 
-    fetchPhotos();
+    if (communityId) {
+      loadPhotos();
+    }
   }, [communityId, navigate]);
 
   useEffect(() => {
@@ -140,7 +162,6 @@ const Gallery = ({ communityId }: GalleryProps) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // First check if the photo is already in a community
       const { data: existingPhoto, error: checkError } = await supabase
         .from('photos')
         .select('community_id')
@@ -149,13 +170,11 @@ const Gallery = ({ communityId }: GalleryProps) => {
 
       if (checkError) throw checkError;
 
-      // If photo already has a community_id, don't add it
       if (existingPhoto && existingPhoto.community_id) {
         toast.error('This photo is already part of another community');
         return;
       }
 
-      // If photo doesn't have a community_id, proceed with adding it
       const { error } = await supabase
         .from('photos')
         .insert({
@@ -240,7 +259,7 @@ const PhotosNotAvailable = ({ displayTime }: { displayTime: Date }) => (
     <h2 className="text-xl font-semibold mb-2">Photos Not Available Yet</h2>
     <p className="text-gray-400">
       Photos will be visible on {displayTime.toLocaleDateString()} at{' '}
-      {displayTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+      {displayTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Be patient 👀
     </p>
   </div>
 );

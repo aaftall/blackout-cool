@@ -11,7 +11,66 @@ const Login = () => {
   const location = useLocation();
   const [isGuidelinesOpen, setIsGuidelinesOpen] = useState(false);
 
-  // Store community ID immediately when component loads
+  useEffect(() => {
+    // Handle hash fragment from OAuth
+    const handleHashFragment = async () => {
+      try {
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        if (hashParams.has('access_token')) {
+          console.log('[Debug] Found access token in URL');
+          const { data: { session }, error } = await supabase.auth.getSession();
+          if (error) throw error;
+          if (session) {
+            console.log('[Debug] Session retrieved:', !!session);
+            // Handle the auth success
+            handleAuthSuccess(session);
+          }
+        }
+      } catch (error) {
+        console.error('[Debug] Hash handling error:', error);
+      }
+    };
+
+    handleHashFragment();
+  }, [location]);
+
+  const handleAuthSuccess = async (session: any) => {
+    const pendingCommunityId = localStorage.getItem('pendingCommunityJoin');
+    console.log('[Debug] Processing auth success:', {
+      pendingCommunityId,
+      userId: session?.user?.id
+    });
+
+    if (pendingCommunityId && session?.user) {
+      try {
+        const { data: newMember, error: insertError } = await supabase
+          .from('community_members')
+          .insert({
+            community_id: pendingCommunityId,
+            user_id: session.user.id,
+            user_role: 'member'
+          })
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+
+        console.log('[Debug] Member added:', newMember);
+        toast.success('Successfully joined the community');
+        navigate(`/community/${pendingCommunityId}/gallery`);
+      } catch (error) {
+        console.error('[Debug] Join failed:', error);
+        toast.error('Failed to join community');
+        navigate('/');
+      } finally {
+        localStorage.removeItem('pendingCommunityJoin');
+      }
+    } else {
+      navigate('/');
+    }
+  };
+
+  // Store community ID from URL if present
   useEffect(() => {
     if (location.pathname.startsWith('/login/join/')) {
       const communityId = location.pathname.split('/login/join/')[1].split('/')[0];
@@ -20,82 +79,8 @@ const Login = () => {
     }
   }, [location.pathname]);
 
-  console.log('[Debug] Current pathname:', location.pathname);
-
-  // Get the original join path if it exists
-  const redirectPath = '/login';  // Simplified redirect path
   const siteUrl = window.location.origin;
-  
-  useEffect(() => {
-    const handleAuthChange = async (event: any, session: any) => {
-      console.log('[Debug] Auth event:', { 
-        event, 
-        hasSession: !!session,
-        userId: session?.user?.id,
-        storedCommunityId: localStorage.getItem('pendingCommunityJoin')  // Add this log
-      });
-
-      if (event !== 'SIGNED_IN' || !session) return;
-
-      const pendingCommunityId = localStorage.getItem('pendingCommunityJoin');
-      console.log('[Debug] Join process:', { 
-        pendingCommunityId,
-        userId: session.user.id,
-        pathname: location.pathname
-      });
-
-      if (pendingCommunityId) {
-        try {
-          // Log the insert attempt
-          console.log('[Debug] Attempting to insert:', {
-            community_id: pendingCommunityId,
-            user_id: session.user.id,
-            user_role: 'member'
-          });
-
-          // Add new member
-          const { data: newMember, error: insertError } = await supabase
-            .from('community_members')
-            .insert({
-              community_id: pendingCommunityId,
-              user_id: session.user.id,
-              user_role: 'member'
-            })
-            .select()  // Add this to get back the inserted record
-            .single();
-
-          console.log('[Debug] Insert result:', {
-            success: !!newMember,
-            error: insertError,
-            newMember
-          });
-
-          if (insertError) {
-            throw insertError;
-          }
-
-          toast.success('Successfully joined the community');
-          navigate(`/community/${pendingCommunityId}/gallery`);
-
-        } catch (error) {
-          console.error('[Debug] Join failed:', error);
-          toast.error('Failed to join community');
-          navigate('/');
-        } finally {
-          // Clean up
-          localStorage.removeItem('pendingCommunityJoin');
-        }
-      } else {
-        navigate('/');
-      }
-    };
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(handleAuthChange);
-
-    return () => {
-      subscription?.unsubscribe();
-    };
-  }, [navigate, location]);
+  const redirectPath = '/login';
 
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center p-6">

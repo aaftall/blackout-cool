@@ -16,6 +16,9 @@ const Login = () => {
     ? location.pathname 
     : location.pathname.replace('/login', '');
 
+  // Get the site URL dynamically
+  const siteUrl = window.location.origin;
+  
   useEffect(() => {
     const handleAuthChange = async (event: any, session: any) => {
       console.log('Auth event received:', event, 'Session:', session);
@@ -25,10 +28,29 @@ const Login = () => {
       console.log('Current path:', path);
       
       if (path.startsWith('/login/join/')) {
-        const communityId = path.split('/login/join/')[1];
-        console.log('Attempting to join community:', communityId);
+        const communityId = path.split('/login/join/')[1].split('/')[0];
+        console.log('Join attempt:', {
+          communityId,
+          userId: session.user.id,
+          fullPath: path
+        });
         
         try {
+          // First verify the community exists
+          const { data: community, error: communityError } = await supabase
+            .from('communities')
+            .select('id')
+            .eq('id', communityId)
+            .single();
+
+          if (communityError || !community) {
+            console.error('Community not found:', communityError);
+            toast.error('Invalid invite link');
+            navigate('/');
+            return;
+          }
+
+          // Check existing membership with detailed error logging
           const { data: existingMember, error: memberCheckError } = await supabase
             .from('community_members')
             .select('*')
@@ -36,39 +58,49 @@ const Login = () => {
             .eq('user_id', session.user.id)
             .single();
 
-          console.log('Existing member check:', { existingMember, memberCheckError });
+          console.log('Membership check:', {
+            existingMember,
+            error: memberCheckError,
+            errorCode: memberCheckError?.code,
+            details: memberCheckError?.details
+          });
 
-          if (memberCheckError && memberCheckError.code !== 'PGRST116') {
-            console.error('Member check error:', memberCheckError);
-            throw memberCheckError;
+          if (existingMember) {
+            console.log('User already a member, redirecting...');
+            toast.info('You are already a member of this community');
+            navigate(`/community/${communityId}/gallery`);
+            return;
           }
 
-          if (!existingMember) {
-            const memberData = {
-              community_id: communityId,
-              user_id: session.user.id,
-              user_role: 'member'
-            };
-            console.log('Inserting new member:', memberData);
+          // Add new member with detailed logging
+          const memberData = {
+            community_id: communityId,
+            user_id: session.user.id,
+            user_role: 'member'
+          };
+          
+          const { data: newMember, error: insertError } = await supabase
+            .from('community_members')
+            .insert([memberData])
+            .select()
+            .single();
 
-            const { error: memberError, data: insertedMember } = await supabase
-              .from('community_members')
-              .insert(memberData)
-              .select()
-              .single();
-
-            if (memberError) {
-              console.error('Insert error:', memberError);
-              throw memberError;
-            }
-            
-            console.log('Successfully inserted member:', insertedMember);
-            toast.success('Successfully joined the community');
+          if (insertError) {
+            console.error('Insert failed:', {
+              error: insertError,
+              errorCode: insertError.code,
+              details: insertError.details,
+              memberData
+            });
+            throw insertError;
           }
 
+          console.log('Successfully added member:', newMember);
+          toast.success('Successfully joined the community');
           navigate(`/community/${communityId}/gallery`);
+
         } catch (error) {
-          console.error('Error joining community:', error);
+          console.error('Join process failed:', error);
           toast.error('Failed to join community');
           navigate('/');
         }
@@ -176,7 +208,8 @@ const Login = () => {
               },
             }}
             providers={['google']}
-            redirectTo={`${window.location.origin}${redirectPath}`}
+            redirectTo={siteUrl + redirectPath}
+            onlyThirdPartyProviders
           />
         </div>
       </div>

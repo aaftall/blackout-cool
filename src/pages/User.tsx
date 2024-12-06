@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Camera, Image, Users, Link as LinkIcon, PlusCircle, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -27,7 +27,17 @@ const User = () => {
   const [editingCommunityName, setEditingCommunityName] = React.useState('');
   const [editingCommunityDate, setEditingCommunityDate] = React.useState('');
   const [editingCommunityEndDate, setEditingCommunityEndDate] = React.useState('');
-  
+  const [inviteLink, setInviteLink] = useState('');
+
+  useEffect(() => {
+    // Check for pending invite on mount
+    const pendingInvite = localStorage.getItem('pendingInviteLink');
+    if (pendingInvite) {
+      handleJoinCommunity(pendingInvite);
+      localStorage.removeItem('pendingInviteLink');
+    }
+  }, []);
+
   React.useEffect(() => {
     async function loadProfile() {
       try {
@@ -217,6 +227,49 @@ const User = () => {
     } catch (error) {
       console.error('Update error:', error);
       toast.error('Failed to update community');
+    }
+  };
+
+  const handleJoinCommunity = async (communityId: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error('Please log in');
+        return;
+      }
+
+      const { error: joinError } = await supabase
+        .from('community_members')
+        .insert({
+          community_id: communityId,
+          user_id: user.id,
+          user_role: 'member',
+          joined_at: new Date().toISOString()
+        });
+
+      if (joinError) {
+        if (joinError.code === '23505') {
+          toast.success('Already a member of this community');
+          navigate(`/community/${communityId}/gallery`);
+          return;
+        }
+        throw joinError;
+      }
+
+      toast.success('Successfully joined the community');
+      navigate(`/community/${communityId}/gallery`);
+    } catch (error) {
+      console.error('Join error:', error);
+      toast.error('Failed to join community');
+    }
+  };
+
+  const handleInviteLinkSubmit = () => {
+    const communityId = inviteLink.split('/join/')[1]?.split('/')[0];
+    if (communityId) {
+      handleJoinCommunity(communityId);
+    } else {
+      toast.error('Invalid invite link');
     }
   };
 

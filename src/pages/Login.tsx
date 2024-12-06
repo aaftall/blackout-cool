@@ -11,77 +11,26 @@ const Login = () => {
   const location = useLocation();
   const [isGuidelinesOpen, setIsGuidelinesOpen] = useState(false);
 
-  useEffect(() => {
-    if (location.pathname.startsWith('/login/join/')) {
-      const communityId = location.pathname.split('/login/join/')[1].split('/')[0];
-      console.log('[Debug] Found invite for community:', communityId);
-
-      // Set auth options with custom data
-      const authOptions = {
-        joining_community: communityId
-      };
-
-      // Update Supabase auth with custom data
-      supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/login`,
-          queryParams: authOptions
-        }
-      });
-    }
-  }, [location.pathname]);
-
   // Handle auth state changes
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('[Debug] Auth event:', event);
 
       if (event === 'SIGNED_IN' && session?.user) {
-        try {
-          // Get the custom data from the session
-          const communityId = session.user.user_metadata?.joining_community;
-          console.log('[Debug] Found community ID in session:', communityId);
-
-          if (communityId) {
-            const { error: joinError } = await supabase
-              .from('community_members')
-              .insert({
-                community_id: communityId,
-                user_id: session.user.id,
-                user_role: 'member',
-                joined_at: new Date().toISOString()
-              });
-
-            if (joinError) {
-              if (joinError.code === '23505') {
-                console.log('[Debug] Already a member');
-                toast.success('Already a member of this community');
-                navigate(`/community/${communityId}/gallery`);
-                return;
-              }
-              throw joinError;
-            }
-
-            console.log('[Debug] Successfully joined community');
-            toast.success('Successfully joined the community');
-            navigate(`/community/${communityId}/gallery`);
-          } else {
-            // No community to join
-            navigate('/');
-          }
-        } catch (error) {
-          console.error('[Debug] Join error:', error);
-          toast.error('Failed to join community');
-          navigate('/');
+        // If there's an invite link, store it for later
+        if (location.pathname.startsWith('/login/join/')) {
+          const communityId = location.pathname.split('/login/join/')[1].split('/')[0];
+          localStorage.setItem('pendingInviteLink', communityId);
         }
+        // Redirect to user page where they can handle the invite
+        navigate('/user');
       }
     });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, [navigate, location.pathname]);
 
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center p-6">

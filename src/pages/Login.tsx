@@ -12,20 +12,36 @@ const Login = () => {
   const [isGuidelinesOpen, setIsGuidelinesOpen] = useState(false);
 
   useEffect(() => {
+    // Debug the initial state
+    console.log('[Debug] Login page loaded:', {
+      pathname: location.pathname,
+      hash: window.location.hash,
+      search: window.location.search
+    });
+
     // Handle hash fragment from OAuth
     const handleHashFragment = async () => {
       try {
+        console.log('[Debug] Checking auth parameters');
         // Check for both hash and query parameters
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         const queryParams = new URLSearchParams(window.location.search);
         
+        console.log('[Debug] Auth parameters:', {
+          hashParams: Object.fromEntries(hashParams),
+          queryParams: Object.fromEntries(queryParams),
+        });
+
         // Check both locations for auth-related parameters
         if (hashParams.has('access_token') || queryParams.has('code')) {
           console.log('[Debug] Found auth parameters in URL');
           const { data: { session }, error } = await supabase.auth.getSession();
           if (error) throw error;
           if (session) {
-            console.log('[Debug] Session retrieved:', !!session);
+            console.log('[Debug] Session retrieved:', {
+              user: session.user?.id,
+              expires: session.expires_at
+            });
             handleAuthSuccess(session);
           }
         }
